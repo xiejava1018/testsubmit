@@ -7,8 +7,14 @@
 """
 import requests
 import json
+import logging
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(filename='testsubmit.log', level=logging.INFO, format=LOG_FORMAT)
 
-class Login(object):
+class Service(object):
+    papernum=0  #试卷数
+    havesub_papernum=0 #已经提交的试卷数
+    testSubmitGUI=None
     def __init__(self):
         self.headers={
             'Referer':'https://jxjyxb.bucm.edu.cn/stu.html',
@@ -25,14 +31,22 @@ class Login(object):
             'student.studentNo':login_name,
             'student.pwd':login_psw
         }
-
         response=self.session.post(self.post_url,data=post_data,headers=self.headers)
         if response.status_code==200:
-            print(response)
+            userlogininfo=response.text
+            print(userlogininfo)
+            logging.info(response.text)
+            logininfo=json.loads(response.text)
+            if logininfo is not None:
+                if logininfo['code']==100:
+                    response=self.session.get(self.logined_url,headers=self.headers)
+                    if response.status_code==200:
+                        logging.info(str(login_name)+"登录成功！")
+                        self.inserttolog('用户'+str(login_name)+"登录成功！")
+                        return logininfo
+                else:
+                    self.inserttolog('用户' + str(login_name) + "登录失败！")
 
-        response=self.session.get(self.logined_url,headers=self.headers)
-        if response.status_code==200:
-            print(response)
 
     #获取学员选课信息
     def geteleactive(self,semeId,studentNo):
@@ -46,14 +60,16 @@ class Login(object):
         }
         response = self.session.post(request_url, data=post_data, headers=self.headers)
         if response.status_code == 200:
-            print(response.text)
+            logging.info(response.text)
+            self.inserttolog('获取学生选课信息成功！')
+            #print(response.text)
             eleactivedata=json.loads(response.text)
             if eleactivedata is not None:
                 courselist=eleactivedata['pager']['datas']
                 for course in courselist:
                     semeId=course['semeId']
                     courseId = course['courseId']
-                    login.getstudentcursework(semeId=semeId,courseId=courseId)
+                    self.getstudentcursework(semeId=semeId,courseId=courseId)
 
 
     def getstudentcursework(self,semeId,courseId):
@@ -66,10 +82,18 @@ class Login(object):
         response = self.session.post(request_url, data=post_data,headers=self.headers)
         if response.status_code == 200:
             print(response.text)
+            logging.info(response.text)
             paperdata=json.loads(response.text)
             if paperdata is not None:
+                self.papernum=len(paperdata)
+                self.show_singstudent_proc(maximum=self.papernum,value=self.havesub_papernum)
+                self.inserttolog('获取学生试卷信息成功！共'+str(self.papernum)+'套试卷')
                 for paper in paperdata:
-                    login.getstudentpaper(paper['paperId'])
+                    self.getstudentpaper(paper['paperId'])
+                    self.havesub_papernum+=1
+                    self.inserttolog('自动完成第' + str(self.havesub_papernum) + '套试卷')
+                    self.show_singstudent_proc(maximum=self.papernum, value=self.havesub_papernum)
+
 
 
     def getstudentpaper(self,paperId):
@@ -87,7 +111,7 @@ class Login(object):
                 queitem['quelib']['okFlag']=queitem['quelib']['ok1']
                 #print(json.dumps(queitem,ensure_ascii=False))
             subpaper=json.dumps(paperinfo,ensure_ascii=False)
-            login.submitpaper(subpaper)
+            self.submitpaper(subpaper)
 
     def getstudentworktest(self,paperId):
         # 试卷URL
@@ -99,7 +123,7 @@ class Login(object):
         if response.status_code == 200:
             print('test---'+response.text)
 
-
+    # 提交试卷
     def submitpaper(self,subpaper):
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/submit_work?paperId=998&workId=1103'
         post_data={
@@ -108,7 +132,19 @@ class Login(object):
         response = self.session.post(request_url, data=post_data, headers=self.headers)
         if response.status_code == 200:
             print('submit paper---'+response.text)
+            self.inserttolog('自动提交试卷：' + response.text)
+
+    # 显示单个学生的测试进度
+    def show_singstudent_proc(self,maximum,value):
+        if self.testSubmitGUI is not None:
+            self.testSubmitGUI.show_procbar_process(maximum,value)
+
+    def inserttolog(self,str):
+        if self.testSubmitGUI is not None:
+            self.testSubmitGUI.insertToLog(str)
+
+
 if __name__=='__main__':
-    login=Login()
-    login.login(login_name='202020121200',login_psw='1qaz2wsx')
-    login.geteleactive(semeId='40',studentNo='202020121200')
+    service=Service()
+    service.login(login_name='202020121200',login_psw='1qaz2wsx')
+    service.geteleactive(semeId='40',studentNo='202020121200')
