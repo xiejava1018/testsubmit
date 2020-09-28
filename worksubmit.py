@@ -19,7 +19,7 @@ class TestSubmitGUI():
 
     def __init__(self, init_window_name):
         self.init_window_name = init_window_name
-        self.menu()
+        #self.menu()
         # 初始化服务
         self.service = Service.Service()
 
@@ -34,7 +34,7 @@ class TestSubmitGUI():
         fileMenu = Menu(menuBar, tearoff=0)
         fileMenu.add_command(label="新建")
         fileMenu.add_separator()
-        fileMenu.add_command(label="退出")
+        fileMenu.add_command(label="退出", command=_quit)
         menuBar.add_cascade(label="文件", menu=fileMenu)
         # Add another Menu to the Menu Bar and an item
         msgMenu = Menu(menuBar, tearoff=0)
@@ -49,7 +49,7 @@ class TestSubmitGUI():
 
     #设置窗口
     def set_init_window(self):
-        self.init_window_name.title("自动化测试工具_v0.9")           #窗口名
+        self.init_window_name.title("自动化测试工具_v0.9beta")           #窗口名
         #self.init_window_name.geometry('320x160+10+10')                         #290 160为窗口大小，+10 +10 定义窗口弹出时的默认展示位置
         self.init_window_name.geometry('600x480+10+10')
         #self.init_window_name["bg"] = "pink"                                    #窗口背景色，其他背景色见：blog.csdn.net/chl0000/article/details/7657887
@@ -68,8 +68,6 @@ class TestSubmitGUI():
 
         # ---------------Tab1控件------------------#
         # We are creating a container tab1 to hold all other widgets
-        #monty = ttk.LabelFrame(tab1, text='单个测试1')
-        #monty.grid(column=0, row=0, padx=8, pady=4)
         ttk.Label(tab1, text="学号:").grid(column=0, row=0, sticky='W')
         # Adding a Textbox Entry widget
         self.student_name = tk.StringVar()
@@ -134,10 +132,10 @@ class TestSubmitGUI():
 
     # 初始化进度条和日志显示栏
     def init_proc(self):
-        self.service.papernum=0
-        self.service.havesub_papernum=0
-        self.progressbar["maximum"] = self.service.papernum
-        self.progressbar["value"] = self.service.havesub_papernum
+        #self.service.papernum=0
+        #self.service.havesub_papernum=0
+        self.progressbar["maximum"] = 0
+        self.progressbar["value"] = 0
         self.proc_frame.update()
         self.logscr.delete(0.0, END)
 
@@ -157,8 +155,15 @@ class TestSubmitGUI():
         print(sfname)
         self.selectfileEntered.insert(INSERT,sfname)
 
+# Exit GUI cleanly
+def _quit():
+    init_window.quit()
+    init_window.destroy()
+    exit()
+
+init_window = Tk()
 def gui_start():
-    init_window = Tk()              #实例化出一个父窗口
+    #实例化出一个父窗口
     testsubmitGUI = TestSubmitGUI(init_window)
     # 设置根窗口默认属性
     testsubmitGUI.set_init_window()
