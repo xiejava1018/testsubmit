@@ -8,11 +8,11 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import scrolledtext
-import hashlib
-import time
 from tkinter import ttk
 from tkinter import filedialog
 import Service
+import time
+import xlrd
 
 class TestSubmitGUI():
     selectfileEntered=object
@@ -82,7 +82,7 @@ class TestSubmitGUI():
         self.student_pwd.set(r'1qaz2wsx')
         self.studentpwdEntered.grid(column=3, row=0, sticky='W')
 
-        btn_process_single = ttk.Button(tab1, text='启动自动测试', command=self.porcsingletest)
+        btn_process_single = ttk.Button(tab1, text='启动自动测试', command=self.procsingletest)
         btn_process_single.grid(column=4, row=0, sticky='W')
 
 
@@ -95,7 +95,7 @@ class TestSubmitGUI():
         button1 = ttk.Button(tab2, text='浏览', width=8, command=self.selectExcelfile)
         button1.grid(column=2,row=0,sticky='W')
 
-        btn_process_batch = ttk.Button(tab2, text='启动自动测试', command=self.show_progress)
+        btn_process_batch = ttk.Button(tab2, text='启动自动测试', command=self.procbatchtest)
         btn_process_batch.grid(column=3, row=0, sticky='W')
 
         # -----------------------------------------
@@ -120,15 +120,33 @@ class TestSubmitGUI():
             self.proc_frame.update()
             time.sleep(0.1)
 
-    def porcsingletest(self):
+    # 自动处理单个学生的作业
+    def procsingletest(self):
         self.init_proc()
-        studentname=self.studentnameEntered.get()
-        studentpwd=self.studentpwdEntered.get()
+        studentname = self.studentnameEntered.get()
+        studentpwd = self.studentpwdEntered.get()
+        self.procdowork(studentname,studentpwd)
+
+    # 自动批量处理学生作业
+    def procbatchtest(self):
+        self.init_proc()
+        # 读取excel文件
+        book = xlrd.open_workbook(self.selectfileEntered.get())
+        sheet1 = book.sheets()[0]
+        nrows = sheet1.nrows
+        for row in range(nrows):
+            row_values = sheet1.row_values(row)
+            studentname=row_values[1]
+            studentpwd=row_values[2]
+            self.procdowork(studentname,studentpwd)
+
+    # 自动作业
+    def procdowork(self,studentname,studentpwd):
         loginuser=self.service.login(login_name=studentname,login_psw=studentpwd)
         if loginuser is not None:
             self.service.geteleactive(semeId='40',studentNo=studentname)
         else:
-            print('登录失败')
+            print(str(loginuser)+'登录失败')
 
     # 初始化进度条和日志显示栏
     def init_proc(self):

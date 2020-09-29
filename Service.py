@@ -12,6 +12,9 @@ import logging
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
 
+delaytime1=2 #等待时间
+delaytime2=5 #等待时间
+
 class Service(object):
     #papernum=0  #试卷数
     #havesub_papernum=0 #已经提交的试卷数
@@ -108,6 +111,7 @@ class Service(object):
                         self.getstudentpaper(paperId,workId)
                         self.log('自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName)
                         self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                    time.sleep(delaytime2)
 
 
     # 获取试卷
@@ -138,9 +142,11 @@ class Service(object):
                                 queitem['quelib'][okflag] = queitem['quelib'][ok]
                     if type==3:
                         print('问答题')
+                time.sleep(delaytime1)
             subpaper=json.dumps(paperinfo,ensure_ascii=False)
             print(subpaper)
             #提交试卷
+            time.sleep(delaytime1)
             self.submitpaper(paperId,workId,subpaper)
 
     def getstudentworktest(self,paperId):
