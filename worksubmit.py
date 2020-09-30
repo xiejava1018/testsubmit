@@ -144,7 +144,8 @@ class TestSubmitGUI():
     def procdowork(self,studentname,studentpwd):
         loginuser=self.service.login(login_name=studentname,login_psw=studentpwd)
         if loginuser is not None:
-            self.service.geteleactive(semeId='40',studentNo=studentname)
+            xueqiid=loginuser['stu']['xueqi']['id']  # 学生学期
+            self.service.geteleactive(semeId=xueqiid,studentNo=studentname)
         else:
             print(str(loginuser)+'登录失败')
 

@@ -12,8 +12,8 @@ import logging
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
 
-delaytime1=2 #等待时间
-delaytime2=5 #等待时间
+delaytime1=1 #等待时间
+delaytime2=2 #等待时间
 
 class Service(object):
     #papernum=0  #试卷数
@@ -43,9 +43,11 @@ class Service(object):
             logininfo=json.loads(response.text)
             if logininfo is not None:
                 if logininfo['code']==100:
+                    # 学生名字
+                    student_name=logininfo['stu']['name']
                     response=self.session.get(self.logined_url,headers=self.headers)
                     if response.status_code==200:
-                        logstr='用户'+str(login_name)+'登录成功！'
+                        logstr='用户'+str(login_name)+'登录成功,学生姓名：'+student_name
                         self.log(logstr)
                         return logininfo
                 else:
@@ -74,8 +76,30 @@ class Service(object):
                     semeId=course['semeId']
                     courseId = course['courseId']
                     courseName = course['courseD']
-                    self.log('获取学生选课'+courseName+'成功！')
-                    self.getstudentcursework(semeId=semeId,courseId=courseId,courseName=courseName)
+                    self.log('获取学生'+str(studentNo)+'选课'+courseName+'成功！')
+                    courseplanid =''
+                    if 'coursePlanId' in course:
+                        courseplanid=course['coursePlanId']
+                    if self.getstudentlearninfo(courseplanid):
+                        self.log('获取学生'+str(studentNo)+'选课'+courseName+'学习计划'+str(courseplanid)+'成功')
+                        self.getstudentcursework(semeId=semeId,courseId=courseId,courseName=courseName)
+                    else:
+                        self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败')
+
+    # 获取学生学习计划
+    def getstudentlearninfo(self,coursePlanId):
+        iflearn=False
+        # 作业列表URL
+        request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/courseplan/learninfo?coursePlanId='+str(coursePlanId)
+        response = self.session.get(request_url,headers=self.headers)
+        if response.status_code == 200:
+            print(response.text)
+            if response.text is not None and response.text!='':
+                result_data = json.loads(response.text)
+                if result_data is not None:
+                    if result_data['code']==100:
+                        iflearn=True
+        return iflearn
 
     # 获取学生作业
     def getstudentcursework(self,semeId,courseId,courseName):
@@ -126,7 +150,7 @@ class Service(object):
         if response.status_code == 200:
             print(response.text)
             paperinfo=json.loads(response.text)
-            print('共'+str(len(paperinfo))+'道题目')
+            self.log('试卷'+str(paperId)+'共'+str(len(paperinfo))+'道题目')
             for queitem in paperinfo:
                 print(queitem['id'])
                 if 'quelib' in queitem:
@@ -189,4 +213,5 @@ if __name__=='__main__':
     service=Service()
     service.login(login_name='202020121200',login_psw='1qaz2wsx')
     #service.geteleactive(semeId='40',studentNo='202020121200')
-    service.getstudentpaper(1002,1107)
+    #service.getstudentpaper(1002,1107)
+    print(service.getstudentlearninfo('46903'))
