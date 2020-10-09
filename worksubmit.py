@@ -13,6 +13,7 @@ from tkinter import filedialog
 import Service
 import time
 import xlrd
+import _thread
 
 class TestSubmitGUI():
     selectfileEntered=object
@@ -125,7 +126,11 @@ class TestSubmitGUI():
         self.init_proc()
         studentname = self.studentnameEntered.get()
         studentpwd = self.studentpwdEntered.get()
-        self.procdowork(studentname,studentpwd)
+        #self.procdowork(studentname,studentpwd)
+        try:
+            _thread.start_new_thread(self.procdowork, (studentname, studentpwd,))
+        except:
+            print("Error: 无法启动线程")
 
     # 自动批量处理学生作业
     def procbatchtest(self):
@@ -159,9 +164,8 @@ class TestSubmitGUI():
         self.logscr.delete(0.0, END)
 
     def insertToLog(self, str):
-        #self.logscr.insert(INSERT, str+'\n')
-        #self.logscr.see(END)
-        self.logscr.insert(END,str+'\n')
+        self.logscr.insert(INSERT, str+'\n')
+        self.logscr.see(END)
 
     def show_procbar_process(self, maximum, value):
         self.progressbar["maximum"] = maximum
