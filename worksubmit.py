@@ -159,8 +159,9 @@ class TestSubmitGUI():
         self.logscr.delete(0.0, END)
 
     def insertToLog(self, str):
-        self.logscr.insert(INSERT, str+'\n')
-        self.logscr.see(END)
+        #self.logscr.insert(INSERT, str+'\n')
+        #self.logscr.see(END)
+        self.logscr.insert(END,str+'\n')
 
     def show_procbar_process(self, maximum, value):
         self.progressbar["maximum"] = maximum

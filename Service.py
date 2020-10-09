@@ -9,6 +9,7 @@ import time
 import requests
 import json
 import logging
+
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
 
@@ -153,10 +154,13 @@ class Service(object):
             self.log('试卷'+str(paperId)+'共'+str(len(paperinfo))+'道题目')
             for queitem in paperinfo:
                 print(queitem['id'])
+                self.log('正在准备题号'+str(queitem['id'])+'的答案')
                 if 'quelib' in queitem:
                     type=queitem['quelib']['type'] #
                     if type==0 or type==2:
-                        queitem['quelib']['okFlag']=queitem['quelib']['ok1']
+                        if 'ok1' in queitem['quelib']:
+                            queitem['quelib']['okFlag']=queitem['quelib']['ok1']
+                            self.log('答案为'+queitem['quelib']['okFlag'])
                     if type==1:
                         queitem['quelib']['okFlag'] = queitem['quelib']['ok1']
                         for num in range(2,10):
@@ -164,14 +168,15 @@ class Service(object):
                             if ok in queitem['quelib']:
                                 okflag='okFlag'+str(num)
                                 queitem['quelib'][okflag] = queitem['quelib'][ok]
+                                self.log('答案为' + queitem['quelib'][okflag])
                     if type==3:
                         print('问答题')
-                time.sleep(delaytime1)
+                #time.sleep(delaytime1)
             subpaper=json.dumps(paperinfo,ensure_ascii=False)
             print(subpaper)
             #提交试卷
-            time.sleep(delaytime1)
-            self.submitpaper(paperId,workId,subpaper)
+            #time.sleep(delaytime1)
+            #self.submitpaper(paperId,workId,subpaper)
 
     def getstudentworktest(self,paperId):
         # 试卷URL
