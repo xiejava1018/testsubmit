@@ -10,10 +10,13 @@ from tkinter import *
 from tkinter import scrolledtext
 from tkinter import ttk
 from tkinter import filedialog
+from tkinter import StringVar
 import Service
 import time
 import xlrd
 import _thread
+
+
 
 class TestSubmitGUI():
     selectfileEntered=object
@@ -50,7 +53,7 @@ class TestSubmitGUI():
 
     #设置窗口
     def set_init_window(self):
-        self.init_window_name.title("自动化测试工具_v0.9beta")           #窗口名
+        self.init_window_name.title("自动作业工具_v0.9beta")           #窗口名
         #self.init_window_name.geometry('320x160+10+10')                         #290 160为窗口大小，+10 +10 定义窗口弹出时的默认展示位置
         self.init_window_name.geometry('600x480+10+10')
         #self.init_window_name["bg"] = "pink"                                    #窗口背景色，其他背景色见：blog.csdn.net/chl0000/article/details/7657887
@@ -59,9 +62,9 @@ class TestSubmitGUI():
         # Tab Control introduced here --------------------------------------
         tabControl = ttk.Notebook(self.init_window_name)  # Create Tab Control
         tab1 = ttk.Frame(tabControl)  # Create a tab
-        tabControl.add(tab1, text='单个测试')  # Add the tab
+        tabControl.add(tab1, text='单用户作业')  # Add the tab
         tab2 = ttk.Frame(tabControl)  # Add a second tab
-        tabControl.add(tab2, text='批量测试')  # Make second tab visible
+        tabControl.add(tab2, text='批量用户作业')  # Make second tab visible
 
         # tabControl.pack(expand=1, fill="both")  # Pack to make visible
         tabControl.grid(column=0, row=0, padx=8, pady=4)
@@ -99,19 +102,22 @@ class TestSubmitGUI():
         btn_process_batch = ttk.Button(tab2, text='启动自动测试', command=self.procbatchtest)
         btn_process_batch.grid(column=3, row=0, sticky='W')
 
-        # -----------------------------------------
+        # ----------------进度条-----------------------
         self.proc_frame = ttk.LabelFrame(self.init_window_name, text="进度信息", relief=SUNKEN)
 
         self.progressbar = ttk.Progressbar(self.proc_frame, length=560, mode='determinate', orient=HORIZONTAL)
         self.progressbar.grid(row=0, column=0)
         self.proc_frame.grid(column=0, row=1)
 
-        # Using a scrolled Text control
+        # ----------------滚动文本框----------------
         scrolW = 80;
-        scrolH = 25
+        scrolH = 25;
         self.logscr = scrolledtext.ScrolledText(self.proc_frame, width=scrolW, height=scrolH, wrap=tk.WORD)
         self.logscr.grid(column=0, row=2, pady=10,sticky='WE', columnspan=10)
 
+        # ----------------状态栏-------------------
+        self.statuslabel = ttk.Label(self.init_window_name,textvariable=status,width=83,anchor=W)
+        self.statuslabel.grid(column=0, row=2, padx=5,pady=2,sticky='W')
 
     def show_progress(self):
         self.progressbar["maximum"] = 100
@@ -146,11 +152,11 @@ class TestSubmitGUI():
             self.procdowork(studentname,studentpwd)
 
     # 自动作业
-    def procdowork(self,studentname,studentpwd):
-        loginuser=self.service.login(login_name=studentname,login_psw=studentpwd)
+    def procdowork(self,studentNo,studentpwd):
+        loginuser=self.service.login(login_name=studentNo,login_psw=studentpwd)
         if loginuser is not None:
             xueqiid=loginuser['stu']['xueqi']['id']  # 学生学期
-            self.service.geteleactive(semeId=xueqiid,studentNo=studentname)
+            self.service.geteleactive(semeId=xueqiid,studentNo=studentNo)
         else:
             print(str(loginuser)+'登录失败')
 
@@ -163,15 +169,20 @@ class TestSubmitGUI():
         self.proc_frame.update()
         self.logscr.delete(0.0, END)
 
+    # 插入显示日志
     def insertToLog(self, str):
         self.logscr.insert(INSERT, str+'\n')
         self.logscr.see(END)
 
+    # 进度条
     def show_procbar_process(self, maximum, value):
         self.progressbar["maximum"] = maximum
         self.progressbar["value"] = value
         self.proc_frame.update()
 
+    # 状态栏
+    def set_status_bar(self,status_msg):
+        status.set(status_msg)
 
     #定义文件导入选择控件
     def selectExcelfile(self):
@@ -186,12 +197,15 @@ def _quit():
     exit()
 
 init_window = Tk()
+status = StringVar()
+status.set('状态:')
 def gui_start():
     #实例化出一个父窗口
     testsubmitGUI = TestSubmitGUI(init_window)
     # 设置根窗口默认属性
     testsubmitGUI.set_init_window()
     testsubmitGUI.service.testSubmitGUI=testsubmitGUI
+
     init_window.mainloop()
 
 

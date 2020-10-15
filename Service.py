@@ -12,8 +12,9 @@ import logging
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
+logging.basicConfig(filename='worksubmit_error.log', level=logging.ERROR, format=LOG_FORMAT)
 
-delaytime1=0.5 #等待时间
+delaytime1=1 #等待时间
 delaytime2=2 #等待时间
 
 class Service(object):
@@ -49,10 +50,10 @@ class Service(object):
                     response=self.session.get(self.logined_url,headers=self.headers)
                     if response.status_code==200:
                         logstr='用户'+str(login_name)+'登录成功,学生姓名：'+student_name
-                        self.log(logstr)
+                        self.log(logstr,True)
                         return logininfo
                 else:
-                    self.log('用户' + str(login_name) + "登录失败！")
+                    self.log('用户' + str(login_name) + "登录失败！",True)
 
 
     #获取学员选课信息
@@ -68,7 +69,7 @@ class Service(object):
         response = self.session.post(request_url, data=post_data, headers=self.headers)
         if response.status_code == 200:
             #logging.info(response.text)
-            self.log('获取学生选课信息成功！')
+            self.log('获取学生'+str(studentNo)+'选课信息成功！')
             #print(response.text)
             eleactivedata=json.loads(response.text)
             if eleactivedata is not None:
@@ -77,15 +78,15 @@ class Service(object):
                     semeId=course['semeId']
                     courseId = course['courseId']
                     courseName = course['courseD']
-                    self.log('获取学生'+str(studentNo)+'选课'+courseName+'成功！')
+                    self.log('获取学生'+str(studentNo)+'选课'+courseName+'成功！',True)
                     courseplanid =''
                     if 'coursePlanId' in course:
                         courseplanid=course['coursePlanId']
                     if self.getstudentlearninfo(courseplanid):
-                        self.log('获取学生'+str(studentNo)+'选课'+courseName+'学习计划'+str(courseplanid)+'成功')
-                        self.getstudentcursework(semeId=semeId,courseId=courseId,courseName=courseName)
+                        self.log('获取学生'+str(studentNo)+'选课'+courseName+'学习计划'+str(courseplanid)+'成功',True)
+                        self.getstudentcursework(login_name=studentNo,semeId=semeId,courseId=courseId,courseName=courseName)
                     else:
-                        self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败')
+                        self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败',True)
 
     # 获取学生学习计划
     def getstudentlearninfo(self,coursePlanId):
@@ -103,7 +104,7 @@ class Service(object):
         return iflearn
 
     # 获取学生作业
-    def getstudentcursework(self,semeId,courseId,courseName):
+    def getstudentcursework(self,login_name,semeId,courseId,courseName):
         #作业列表URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/work_list'
         post_data={
@@ -118,8 +119,8 @@ class Service(object):
             if paperdata is not None:
                 papernum=len(paperdata)
                 havesub_papernum=0
-                self.show_singstudent_proc(maximum=papernum,value=havesub_papernum)
-                self.log('获取学生'+courseName+'作业信息成功！共'+str(papernum)+'套作业')
+                #self.show_singstudent_proc(maximum=papernum,value=havesub_papernum)
+                self.log('获取学生'+str(login_name)+courseName+'作业信息成功！共'+str(papernum)+'套作业',True)
                 for paper in paperdata:
                     workId=paper['id']
                     paperId=paper['paperId']
@@ -130,17 +131,17 @@ class Service(object):
                         print(createTime)
                         timeArray= time.localtime(createTime/1000)
                         workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-                        self.log('第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！')
-                        self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                        self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
+                        #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
                     else:
-                        self.getstudentpaper(paperId,workId)
-                        self.log('自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName)
-                        self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                        self.getstudentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
+                        self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName,True)
+                        #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
                     time.sleep(delaytime2)
 
 
     # 获取试卷
-    def getstudentpaper(self,paperId,workId):
+    def getstudentpaper(self,login_name,paperId,paperName,workId):
         #试卷URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/paper'
         paperId=paperId
@@ -151,10 +152,14 @@ class Service(object):
         if response.status_code == 200:
             print(response.text)
             paperinfo=json.loads(response.text)
-            self.log('试卷'+str(paperId)+'共'+str(len(paperinfo))+'道题目')
+            itemnum=len(paperinfo)
+            havdo_itemnum=0
+            self.log('学生'+str(login_name)+'试卷'+paperName+'('+str(paperId)+')共'+str(itemnum)+'道题目')
+            self.set_status('学生'+str(login_name)+'正在进行试卷' + str(paperId) + '-'+paperName+'， 共' + str(itemnum) + '道题目。')
+            self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
             for queitem in paperinfo:
                 print(queitem['id'])
-                self.log('正在准备题号'+str(queitem['id'])+'的答案')
+                self.log('学生'+str(login_name)+'正在准备题号'+str(queitem['id'])+'的答案')
                 if 'quelib' in queitem:
                     type = queitem['quelib']['type'] #
                     if type==0 or type==2:
@@ -173,12 +178,14 @@ class Service(object):
                                 self.log('答案为' + queitem['quelib'][okflag])
                     if type == 3:
                         print('问答题')
+                havdo_itemnum += 1
                 time.sleep(delaytime1)
+                self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
             subpaper=json.dumps(paperinfo,ensure_ascii=False)
             print(subpaper)
             #提交试卷
             time.sleep(delaytime1)
-            #self.submitpaper(paperId,workId,subpaper)
+            self.submitpaper(login_name=login_name,paperId=paperId,workId=workId,subpaper=subpaper)
 
     def getstudentworktest(self,paperId):
         # 试卷URL
@@ -191,7 +198,7 @@ class Service(object):
             print('test---'+response.text)
 
     # 提交试卷
-    def submitpaper(self,paperId,workId,subpaper):
+    def submitpaper(self,login_name,paperId,workId,subpaper):
         # 提交试卷URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/submit_work?paperId='+str(paperId)+'&workId='+str(workId)
         post_data={
@@ -200,21 +207,27 @@ class Service(object):
         response = self.session.post(request_url, data=post_data, headers=self.headers)
         if response.status_code == 200:
             print('submit paper---'+response.text)
-            self.log('自动提交试卷：' + response.text)
+            self.log('学生'+str(login_name)+'自动提交试卷：' + response.text,True)
 
-    # 显示单个学生的测试进度
-    def show_singstudent_proc(self,maximum,value):
+    # 显示单个学生的作业进度
+    def show_dowork_proc(self,maximum,value):
         if self.testSubmitGUI is not None:
             self.testSubmitGUI.show_procbar_process(maximum,value)
 
+    # 显示具体的进度信息
     def inserttolog(self,str):
         if self.testSubmitGUI is not None:
             self.testSubmitGUI.insertToLog(str)
-
-    def log(self,logstr):
-        logging.info(logstr)
+    # 记日志
+    def log(self,logstr,islog=False):
         self.inserttolog(logstr)
+        if islog:
+            logging.info(logstr)
 
+    # 设置状态栏的状态信息
+    def set_status(self,str):
+        if self.testSubmitGUI is not None:
+            self.testSubmitGUI.set_status_bar(str)
 
 if __name__=='__main__':
     service=Service()
