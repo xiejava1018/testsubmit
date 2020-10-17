@@ -9,13 +9,12 @@ import time
 import requests
 import json
 import logging
+import random
+import ReadConfig
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
 logging.basicConfig(filename='worksubmit_error.log', level=logging.ERROR, format=LOG_FORMAT)
-
-delaytime1=1 #等待时间
-delaytime2=2 #等待时间
 
 class Service(object):
     #papernum=0  #试卷数
@@ -31,6 +30,11 @@ class Service(object):
         self.post_url='https://jxjyxb.bucm.edu.cn/api/v1/student/main/login'
         self.logined_url='https://jxjyxb.bucm.edu.cn/stu.html#/xuexi/benxueqi'
         self.session=requests.Session()
+
+        self.config = ReadConfig.ReadConfig()
+
+
+
 
     def login(self,login_name,login_psw):
         post_data={
@@ -125,19 +129,41 @@ class Service(object):
                     workId=paper['id']
                     paperId=paper['paperId']
                     paperName=paper['name']
+                    createTimeStr=paper['createTime']
+                    createTimeArray = time.localtime(createTimeStr / 1000)
+                    createTime = time.strftime("%Y-%m-%d %H:%M:%S", createTimeArray)
+
+                    endTimeStr=paper['endTime']
+                    endTimeArray = time.localtime(endTimeStr / 1000)
+                    endTime = time.strftime("%Y-%m-%d %H:%M:%S", endTimeArray)
+
+                    timeStamp = time.time()  # 1559286774.2953627
+                    timeArray = time.localtime(timeStamp)
+                    currentTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+
+                    #print('创建时间' + createTime)
+                    #print('结束时间' + endTime)
+                    #print('当前时间' + currentTime)
                     havesub_papernum += 1
-                    if 'courseWorkStu' in paper:
-                        createTime=paper['courseWorkStu']['createTime']
-                        print(createTime)
-                        timeArray= time.localtime(createTime/1000)
-                        workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-                        self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
-                        #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                    if currentTime > createTime and currentTime < endTime:
+                        if 'courseWorkStu' in paper:
+                            courseWorkcreateTime=paper['courseWorkStu']['createTime']
+                            print(createTime)
+                            timeArray= time.localtime(courseWorkcreateTime/1000)
+                            workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+                            self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
+                            #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                        else:
+                            self.getstudentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
+                            self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName,True)
+                            #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                            workdelaytime=self.getworkdelaytime()
+                            self.log('休息'+str(workdelaytime)+'秒....',False)
+                            time.sleep(workdelaytime)
                     else:
-                        self.getstudentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
-                        self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName,True)
-                        #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
-                    time.sleep(delaytime2)
+                        self.log('学生' + str(login_name) + '第' + str(havesub_papernum) + '套作业-试卷编号：' + str(
+                            paperId) + '-' + paperName + '没有在作业时间范围之内,暂不能开始作业！', True)
+
 
 
     # 获取试卷
@@ -157,6 +183,7 @@ class Service(object):
             self.log('学生'+str(login_name)+'试卷'+paperName+'('+str(paperId)+')共'+str(itemnum)+'道题目')
             self.set_status('学生'+str(login_name)+'正在进行试卷' + str(paperId) + '-'+paperName+'， 共' + str(itemnum) + '道题目。')
             self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
+            itemdelaytime =self.get_itemdelaytime()
             for queitem in paperinfo:
                 print(queitem['id'])
                 self.log('学生'+str(login_name)+'正在准备题号'+str(queitem['id'])+'的答案')
@@ -179,12 +206,14 @@ class Service(object):
                     if type == 3:
                         print('问答题')
                 havdo_itemnum += 1
-                time.sleep(delaytime1)
+                itemdelaytime = self.get_itemdelaytime()
+                print('答案准备时间：'+str(itemdelaytime))
+                time.sleep(itemdelaytime)
                 self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
             subpaper=json.dumps(paperinfo,ensure_ascii=False)
             print(subpaper)
             #提交试卷
-            time.sleep(delaytime1)
+            time.sleep(itemdelaytime)
             self.submitpaper(login_name=login_name,paperId=paperId,workId=workId,subpaper=subpaper)
 
     def getstudentworktest(self,paperId):
@@ -223,6 +252,31 @@ class Service(object):
         self.inserttolog(logstr)
         if islog:
             logging.info(logstr)
+
+    def get_itemdelaytime(self):
+        itemdelaytime = random.randint(1, 3)  # 等待时间
+        configdelaytime=self.getconfigdelaytime('delay-time','itemdelay')
+        if configdelaytime>0:
+            itemdelaytime=configdelaytime
+        return itemdelaytime
+
+
+    def getworkdelaytime(self):
+        workdelaytime = random.randint(10, 20)  # 等待时间
+        configdelaytime = self.getconfigdelaytime('delay-time', 'workdelay')
+        if configdelaytime > 0:
+            workdelaytime = configdelaytime
+        return workdelaytime
+
+    def getconfigdelaytime(self,option,item):
+        delaytime=0
+        if self.config.get_configvalue(option, item):
+            delayconf = self.config.get_configvalue(option, item)
+            delayarry = delayconf.split(',')
+            if len(delayarry) == 2:
+                delaytime = random.randint(int(delayarry[0]), int(delayarry[1]))
+        return delaytime
+
 
     # 设置状态栏的状态信息
     def set_status(self,str):
