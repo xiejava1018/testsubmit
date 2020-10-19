@@ -285,7 +285,8 @@ class Service(object):
 
 if __name__=='__main__':
     service=Service()
-    service.login(login_name='202020121200',login_psw='1qaz2wsx')
+    service.login(login_name='201820113109',login_psw='806854137')
     #service.geteleactive(semeId='40',studentNo='202020121200')
     #service.getstudentpaper(1002,1107)
-    print(service.getstudentlearninfo('46903'))
+    service.getstudentpaper('201820113109','684','医古文B',684)
+    #print(service.getstudentlearninfo('46903'))
