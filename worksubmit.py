@@ -134,9 +134,17 @@ class TestSubmitGUI():
         studentpwd = self.studentpwdEntered.get()
         #self.procdowork(studentname,studentpwd)
         try:
-            _thread.start_new_thread(self.procdowork, (studentname, studentpwd,))
+            _thread.start_new_thread(self.dosingework, (studentname, studentpwd,))
+
         except:
             print("Error: 无法启动线程")
+            self.service.log('Error: 无法启动线程', True)
+
+    # 做单个作业
+    def dosingework(self,stud_no,stud_pwd):
+        self.procdowork(stud_no,stud_pwd)
+        self.service.log(str(stud_no)+'自动作业执行完成！', True)
+        self.set_status_bar(str(stud_no)+'自动作业执行完成！')
 
     # 自动批量处理学生作业
     def procbatchtest(self):
@@ -144,12 +152,22 @@ class TestSubmitGUI():
         # 读取excel文件
         book = xlrd.open_workbook(self.selectfileEntered.get())
         sheet1 = book.sheets()[0]
+        try:
+            _thread.start_new_thread(self.dobatch, (sheet1,))
+        except:
+            print("Error:无法启动线程")
+            self.service.log('Error: 无法启动线程', True)
+
+    # 批量处理作业
+    def dobatch(self,sheet1):
         nrows = sheet1.nrows
         for row in range(nrows):
             row_values = sheet1.row_values(row)
-            studentname=row_values[1]
-            studentpwd=row_values[2]
-            self.procdowork(studentname,studentpwd)
+            studentname = row_values[1]
+            studentpwd = row_values[2]
+            self.procdowork(studentname, studentpwd)
+        self.service.log('批量自动作业执行完成！', True)
+        self.set_status_bar('批量自动作业执行完成！')
 
     # 自动作业
     def procdowork(self,studentNo,studentpwd):

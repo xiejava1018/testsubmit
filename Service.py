@@ -11,10 +11,12 @@ import json
 import logging
 import random
 import ReadConfig
+import SelectWorkService
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
 logging.basicConfig(filename='worksubmit_error.log', level=logging.ERROR, format=LOG_FORMAT)
+neterror_msg='网络连接失败，请检查服务或网络是否正常！'
 
 class Service(object):
     #papernum=0  #试卷数
@@ -30,34 +32,40 @@ class Service(object):
         self.post_url='https://jxjyxb.bucm.edu.cn/api/v1/student/main/login'
         self.logined_url='https://jxjyxb.bucm.edu.cn/stu.html#/xuexi/benxueqi'
         self.session=requests.Session()
-
+        # 读配置文件
         self.config = ReadConfig.ReadConfig()
+        # 初始化学生选做作业信息
+        self.selectworkService=SelectWorkService.SelectWorkService()
+        self.selectworkService.initdata()
 
-
-
-
+    # 登录
     def login(self,login_name,login_psw):
         post_data={
             'student.studentNo':login_name,
             'student.pwd':login_psw
         }
-        response=self.session.post(self.post_url,data=post_data,headers=self.headers)
-        if response.status_code==200:
-            userlogininfo=response.text
-            print(userlogininfo)
-            #logging.info(response.text)
-            logininfo=json.loads(response.text)
-            if logininfo is not None:
-                if logininfo['code']==100:
-                    # 学生名字
-                    student_name=logininfo['stu']['name']
-                    response=self.session.get(self.logined_url,headers=self.headers)
-                    if response.status_code==200:
-                        logstr='用户'+str(login_name)+'登录成功,学生姓名：'+student_name
-                        self.log(logstr,True)
-                        return logininfo
-                else:
-                    self.log('用户' + str(login_name) + "登录失败！",True)
+        try:
+            response=self.session.post(self.post_url,data=post_data,headers=self.headers)
+            if response.status_code==200:
+                userlogininfo=response.text
+                print(userlogininfo)
+                #logging.info(response.text)
+                logininfo=json.loads(response.text)
+                if logininfo is not None:
+                    if logininfo['code']==100:
+                        # 学生名字
+                        student_name=logininfo['stu']['name']
+                        response=self.session.get(self.logined_url,headers=self.headers)
+                        if response.status_code==200:
+                            logstr='用户'+str(login_name)+'登录成功,学生姓名：'+student_name
+                            self.log(logstr,True)
+                            return logininfo
+                    else:
+                        self.log('用户' + str(login_name) + "登录失败！",True)
+        except :
+            self.log(neterror_msg, True)
+            exit()
+
 
 
     #获取学员选课信息
@@ -70,41 +78,47 @@ class Service(object):
             'eleactive.semeId': semeId,
             'eleactive.studentNo': studentNo
         }
-        response = self.session.post(request_url, data=post_data, headers=self.headers)
-        if response.status_code == 200:
-            #logging.info(response.text)
-            self.log('获取学生'+str(studentNo)+'选课信息成功！')
-            #print(response.text)
-            eleactivedata=json.loads(response.text)
-            if eleactivedata is not None:
-                courselist=eleactivedata['pager']['datas']
-                for course in courselist:
-                    semeId=course['semeId']
-                    courseId = course['courseId']
-                    courseName = course['courseD']
-                    self.log('获取学生'+str(studentNo)+'选课'+courseName+'成功！',True)
-                    courseplanid =''
-                    if 'coursePlanId' in course:
-                        courseplanid=course['coursePlanId']
-                    if self.getstudentlearninfo(courseplanid):
-                        self.log('获取学生'+str(studentNo)+'选课'+courseName+'学习计划'+str(courseplanid)+'成功',True)
-                        self.getstudentcursework(login_name=studentNo,semeId=semeId,courseId=courseId,courseName=courseName)
-                    else:
-                        self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败',True)
+        try:
+            response = self.session.post(request_url, data=post_data, headers=self.headers)
+            if response.status_code == 200:
+                #logging.info(response.text)
+                self.log('获取学生'+str(studentNo)+'选课信息成功！')
+                #print(response.text)
+                eleactivedata=json.loads(response.text)
+                if eleactivedata is not None:
+                    courselist=eleactivedata['pager']['datas']
+                    for course in courselist:
+                        semeId=course['semeId']
+                        courseId = course['courseId']
+                        courseName = course['courseD']
+                        self.log('获取学生'+str(studentNo)+'选课'+courseName+'成功！',True)
+                        courseplanid =''
+                        if 'coursePlanId' in course:
+                            courseplanid=course['coursePlanId']
+                        if self.getstudentlearninfo(courseplanid):
+                            self.log('获取学生'+str(studentNo)+'选课'+courseName+'学习计划'+str(courseplanid)+'成功',True)
+                            self.getstudentcursework(login_name=studentNo,semeId=semeId,courseId=courseId,courseName=courseName)
+                        else:
+                            self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败',True)
+        except :
+            self.log(neterror_msg, True)
 
     # 获取学生学习计划
     def getstudentlearninfo(self,coursePlanId):
         iflearn=False
         # 作业列表URL
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/courseplan/learninfo?coursePlanId='+str(coursePlanId)
-        response = self.session.get(request_url,headers=self.headers)
-        if response.status_code == 200:
-            print(response.text)
-            if response.text is not None and response.text!='':
-                result_data = json.loads(response.text)
-                if result_data is not None:
-                    if result_data['code']==100:
-                        iflearn=True
+        try:
+            response = self.session.get(request_url,headers=self.headers)
+            if response.status_code == 200:
+                print(response.text)
+                if response.text is not None and response.text!='':
+                    result_data = json.loads(response.text)
+                    if result_data is not None:
+                        if result_data['code']==100:
+                            iflearn=True
+        except :
+            self.log(neterror_msg, True)
         return iflearn
 
     # 获取学生作业
@@ -115,54 +129,70 @@ class Service(object):
             'semeId':semeId,
             'courseId':courseId
         }
-        response = self.session.post(request_url, data=post_data,headers=self.headers)
-        if response.status_code == 200:
-            print(response.text)
-            #logging.info(response.text)
-            paperdata=json.loads(response.text)
-            if paperdata is not None:
-                papernum=len(paperdata)
-                havesub_papernum=0
-                #self.show_singstudent_proc(maximum=papernum,value=havesub_papernum)
-                self.log('获取学生'+str(login_name)+courseName+'作业信息成功！共'+str(papernum)+'套作业',True)
-                for paper in paperdata:
-                    workId=paper['id']
-                    paperId=paper['paperId']
-                    paperName=paper['name']
-                    createTimeStr=paper['createTime']
-                    createTimeArray = time.localtime(createTimeStr / 1000)
-                    createTime = time.strftime("%Y-%m-%d %H:%M:%S", createTimeArray)
+        try:
+            response = self.session.post(request_url, data=post_data,headers=self.headers)
+            if response.status_code == 200:
+                print(response.text)
+                #logging.info(response.text)
+                paperdata=json.loads(response.text)
+                if paperdata is not None:
+                    papernum=len(paperdata)
+                    havesub_papernum=0
+                    #self.show_singstudent_proc(maximum=papernum,value=havesub_papernum)
+                    self.log('获取学生'+str(login_name)+courseName+'作业信息成功！共'+str(papernum)+'套作业',True)
+                    # 判断是否是学生选做
+                    isselectdo=self.selectworkService.isselectdo(login_name)
+                    if isselectdo:
+                        self.log('学生'+str(login_name) + '有要求选择性自动作业',True)
+                    checkcourse='courseId='+str(courseId)
+                    isdocourse=self.selectworkService.isdowork(str(login_name),checkcourse)
+                    if isdocourse:
+                        self.log('学生' +str(login_name) + '要求自动做' + checkcourse+'课程：'+courseName, True)
+                    for paper in paperdata:
+                        workId=paper['id']
+                        paperId=paper['paperId']
+                        paperName=paper['name']
+                        createTimeStr=paper['createTime']
+                        createTimeArray = time.localtime(createTimeStr / 1000)
+                        createTime = time.strftime("%Y-%m-%d %H:%M:%S", createTimeArray)
 
-                    endTimeStr=paper['endTime']
-                    endTimeArray = time.localtime(endTimeStr / 1000)
-                    endTime = time.strftime("%Y-%m-%d %H:%M:%S", endTimeArray)
+                        endTimeStr=paper['endTime']
+                        endTimeArray = time.localtime(endTimeStr / 1000)
+                        endTime = time.strftime("%Y-%m-%d %H:%M:%S", endTimeArray)
 
-                    timeStamp = time.time()  # 1559286774.2953627
-                    timeArray = time.localtime(timeStamp)
-                    currentTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+                        timeStamp = time.time()  # 1559286774.2953627
+                        timeArray = time.localtime(timeStamp)
+                        currentTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
 
-                    #print('创建时间' + createTime)
-                    #print('结束时间' + endTime)
-                    #print('当前时间' + currentTime)
-                    havesub_papernum += 1
-                    if currentTime > createTime and currentTime < endTime:
-                        if 'courseWorkStu' in paper:
-                            courseWorkcreateTime=paper['courseWorkStu']['createTime']
-                            print(createTime)
-                            timeArray= time.localtime(courseWorkcreateTime/1000)
-                            workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-                            self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
-                            #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                        #print('创建时间' + createTime)
+                        #print('结束时间' + endTime)
+                        #print('当前时间' + currentTime)
+                        havesub_papernum += 1
+                        if currentTime > createTime and currentTime < endTime:
+                            if 'courseWorkStu' in paper:
+                                courseWorkcreateTime=paper['courseWorkStu']['createTime']
+                                timeArray= time.localtime(courseWorkcreateTime/1000)
+                                workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+                                self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
+                                #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                            else:
+                                checkwork='paperId='+str(paperId)+'&workId='+str(workId)
+                                isdowork=self.selectworkService.isdowork(str(login_name),checkwork)
+                                if isdowork:
+                                    self.log('学生' + str(login_name) + '要求自动做' + checkwork + '作业：' + paperName, True)
+                                if isselectdo==False or (isselectdo and isdocourse) or (isselectdo and isdowork):
+                                    self.getstudentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
+                                    self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName,True)
+                                    #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                                    workdelaytime=self.getworkdelaytime()
+                                    self.log('休息'+str(workdelaytime)+'秒....',False)
+                                    time.sleep(workdelaytime)
                         else:
-                            self.getstudentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
-                            self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName,True)
-                            #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
-                            workdelaytime=self.getworkdelaytime()
-                            self.log('休息'+str(workdelaytime)+'秒....',False)
-                            time.sleep(workdelaytime)
-                    else:
-                        self.log('学生' + str(login_name) + '第' + str(havesub_papernum) + '套作业-试卷编号：' + str(
-                            paperId) + '-' + paperName + '没有在作业时间范围之内,暂不能开始作业！', True)
+                            self.log('学生' + str(login_name) + '第' + str(havesub_papernum) + '套作业-试卷编号：' + str(
+                                paperId) + '-' + paperName + '没有在作业时间范围之内,暂不能开始作业！', True)
+        except :
+            self.log(neterror_msg, True)
+            exit()
 
 
 
@@ -174,47 +204,50 @@ class Service(object):
         post_data={
             'paperId':paperId
         }
-        response = self.session.post(request_url, data=post_data,headers=self.headers)
-        if response.status_code == 200:
-            print(response.text)
-            paperinfo=json.loads(response.text)
-            itemnum=len(paperinfo)
-            havdo_itemnum=0
-            self.log('学生'+str(login_name)+'试卷'+paperName+'('+str(paperId)+')共'+str(itemnum)+'道题目')
-            self.set_status('学生'+str(login_name)+'正在进行试卷' + str(paperId) + '-'+paperName+'， 共' + str(itemnum) + '道题目。')
-            self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
-            itemdelaytime =self.get_itemdelaytime()
-            for queitem in paperinfo:
-                print(queitem['id'])
-                self.log('学生'+str(login_name)+'正在准备题号'+str(queitem['id'])+'的答案')
-                if 'quelib' in queitem:
-                    type = queitem['quelib']['type'] #
-                    if type==0 or type==2:
-                        if 'ok1' in queitem['quelib']:
-                            queitem['quelib']['okFlag']=queitem['quelib']['ok1']
-                            self.log('答案为'+queitem['quelib']['okFlag'])
-                    if type == 1:
-                        #queitem['quelib']['okFlag'] = queitem['quelib']['ok1']
-                        for num in range(1,10):
-                            ok = 'ok'+str(num)
-                            if ok in queitem['quelib']:
-                                okflag = 'okFlag'
-                                if num > 1:
-                                    okflag='okFlag'+str(num)
-                                queitem['quelib'][okflag] = queitem['quelib'][ok]
-                                self.log('答案为' + queitem['quelib'][okflag])
-                    if type == 3:
-                        print('问答题')
-                havdo_itemnum += 1
-                itemdelaytime = self.get_itemdelaytime()
-                print('答案准备时间：'+str(itemdelaytime))
-                time.sleep(itemdelaytime)
+        try:
+            response = self.session.post(request_url, data=post_data,headers=self.headers)
+            if response.status_code == 200:
+                print(response.text)
+                paperinfo=json.loads(response.text)
+                itemnum=len(paperinfo)
+                havdo_itemnum=0
+                self.log('学生'+str(login_name)+'试卷'+paperName+'('+str(paperId)+')共'+str(itemnum)+'道题目')
+                self.set_status('学生'+str(login_name)+'正在进行试卷' + str(paperId) + '-'+paperName+'， 共' + str(itemnum) + '道题目。')
                 self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
-            subpaper=json.dumps(paperinfo,ensure_ascii=False)
-            print(subpaper)
-            #提交试卷
-            time.sleep(itemdelaytime)
-            self.submitpaper(login_name=login_name,paperId=paperId,workId=workId,subpaper=subpaper)
+                itemdelaytime =self.get_itemdelaytime()
+                for queitem in paperinfo:
+                    print(queitem['id'])
+                    self.log('学生'+str(login_name)+'正在准备题号'+str(queitem['id'])+'的答案')
+                    if 'quelib' in queitem:
+                        type = queitem['quelib']['type'] #
+                        if type==0 or type==2:
+                            if 'ok1' in queitem['quelib']:
+                                queitem['quelib']['okFlag']=queitem['quelib']['ok1']
+                                self.log('答案为'+queitem['quelib']['okFlag'])
+                        if type == 1:
+                            #queitem['quelib']['okFlag'] = queitem['quelib']['ok1']
+                            for num in range(1,10):
+                                ok = 'ok'+str(num)
+                                if ok in queitem['quelib']:
+                                    okflag = 'okFlag'
+                                    if num > 1:
+                                        okflag='okFlag'+str(num)
+                                    queitem['quelib'][okflag] = queitem['quelib'][ok]
+                                    self.log('答案为' + queitem['quelib'][okflag])
+                        if type == 3:
+                            print('问答题')
+                    havdo_itemnum += 1
+                    itemdelaytime = self.get_itemdelaytime()
+                    print('答案准备时间：'+str(itemdelaytime))
+                    time.sleep(itemdelaytime)
+                    self.show_dowork_proc(maximum=itemnum, value=havdo_itemnum)
+                subpaper=json.dumps(paperinfo,ensure_ascii=False)
+                print(subpaper)
+                #提交试卷
+                time.sleep(itemdelaytime)
+                self.submitpaper(login_name=login_name,paperId=paperId,workId=workId,subpaper=subpaper)
+        except :
+            self.log(neterror_msg, True)
 
     def getstudentworktest(self,paperId):
         # 试卷URL
@@ -222,9 +255,12 @@ class Service(object):
         post_data = {
             'paperId': paperId
         }
-        response = self.session.post(request_url, data=post_data, headers=self.headers)
-        if response.status_code == 200:
-            print('test---'+response.text)
+        try:
+            response = self.session.post(request_url, data=post_data, headers=self.headers)
+            if response.status_code == 200:
+                print('test---'+response.text)
+        except :
+            self.log(neterror_msg, True)
 
     # 提交试卷
     def submitpaper(self,login_name,paperId,workId,subpaper):
@@ -233,10 +269,13 @@ class Service(object):
         post_data={
             'sub':subpaper
         }
-        response = self.session.post(request_url, data=post_data, headers=self.headers)
-        if response.status_code == 200:
-            print('submit paper---'+response.text)
-            self.log('学生'+str(login_name)+'自动提交试卷：' + response.text,True)
+        try:
+            response = self.session.post(request_url, data=post_data, headers=self.headers)
+            if response.status_code == 200:
+                print('submit paper---'+response.text)
+                self.log('学生'+str(login_name)+'自动提交作业：' + response.text,True)
+        except :
+            self.log(neterror_msg, True)
 
     # 显示单个学生的作业进度
     def show_dowork_proc(self,maximum,value):
