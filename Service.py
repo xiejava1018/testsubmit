@@ -12,6 +12,7 @@ import logging
 import random
 import ReadConfig
 import SelectWorkService
+import DateUtil
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(filename='worksubmit.log', level=logging.INFO, format=LOG_FORMAT)
@@ -277,6 +278,54 @@ class Service(object):
         except :
             self.log(neterror_msg, True)
 
+    # 获取学生选课计划
+    def get_stu_courseplanlist(self,loginname,loginpsw):
+        studinfo=self.login(loginname,loginpsw)
+        if studinfo:
+            stu_plan_name=studinfo['stu']['planObj']['name']
+            stu_plan_level=studinfo['stu']['planObj']['levelId']
+            stu_plan_spec=studinfo['stu']['planObj']['spec']
+            stu_plan_id=studinfo['stu']['planObj']['id']
+        dateutil = DateUtil.DateUtil()
+        semenum=dateutil.getSCTermNo(stu_plan_name)
+        request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/courseplan/list_stu'
+        post_data = {
+            'page': 1,
+            'pageSize':100,
+            'coursePlan.planId':stu_plan_id,
+            'coursePlan.semenum':semenum
+        }
+        try:
+            response = self.session.post(request_url, data=post_data, headers=self.headers)
+            if response.status_code == 200:
+                print('选课信息---' + response.text)
+                stu_course_json = json.loads(response.text)
+                stu_course_plan=stu_course_json['pager']['datas']
+                self.log('学生' + str(loginname) + '自动选课：' + response.text, True)
+        except:
+            self.log(neterror_msg, True)
+
+
+    def get_stu_eleactive(self,semeId,studentNo):
+        request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/list2'
+        post_data = {
+            'page': 1,
+            'pageSize': 100,
+            'eleactive.semeId': semeId,
+            'eleactive.studentNo': studentNo
+        }
+        try:
+            response = self.session.post(request_url, data=post_data, headers=self.headers)
+            if response.status_code == 200:
+                print('选课记录---' + response.text)
+                stu_course_json = json.loads(response.text)
+                stu_elective = stu_course_json['pager']['datas']
+                self.log('学生' + str(studentNo) + '自动选课：' + response.text, True)
+        except:
+            self.log(neterror_msg, True)
+        return stu_elective
+
+
     # 显示单个学生的作业进度
     def show_dowork_proc(self,maximum,value):
         if self.testSubmitGUI is not None:
@@ -324,8 +373,9 @@ class Service(object):
 
 if __name__=='__main__':
     service=Service()
-    service.login(login_name='201820113109',login_psw='806854137')
+    #service.login(login_name='201820113109',login_psw='806854137')
     #service.geteleactive(semeId='40',studentNo='202020121200')
     #service.getstudentpaper(1002,1107)
-    service.getstudentpaper('201820113109','684','医古文B',684)
+    #service.getstudentpaper('201820113109','684','医古文B',684)
     #print(service.getstudentlearninfo('46903'))
+    service.get_stu_courseplanlist('202020121200','1qaz2wsx')

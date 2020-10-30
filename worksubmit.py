@@ -65,6 +65,8 @@ class TestSubmitGUI():
         tabControl.add(tab1, text='单用户作业')  # Add the tab
         tab2 = ttk.Frame(tabControl)  # Add a second tab
         tabControl.add(tab2, text='批量用户作业')  # Make second tab visible
+        tab3 = ttk.Frame(tabControl)  # Add a second tab
+        tabControl.add(tab3, text='自动选课')  # Make second tab visible
 
         # tabControl.pack(expand=1, fill="both")  # Pack to make visible
         tabControl.grid(column=0, row=0, padx=8, pady=4)
@@ -101,6 +103,19 @@ class TestSubmitGUI():
 
         btn_process_batch = ttk.Button(tab2, text='启动自动测试', command=self.procbatchtest)
         btn_process_batch.grid(column=3, row=0, sticky='W')
+
+        # ----------------Tab3控件-------------------
+        ttk.Label(tab3, text="选择导入文件:").grid(column=0, row=0, sticky='W')
+        # Adding a Textbox Entry widget
+        selectfile = tk.StringVar()
+        self.selectfileEntered = ttk.Entry(tab3, width=48, textvariable=selectfile)
+        self.selectfileEntered.grid(column=1, row=0, sticky='W')
+        button1 = ttk.Button(tab3, text='浏览', width=8, command=self.selectExcelfile)
+        button1.grid(column=2,row=0,sticky='W')
+
+        btn_pro_selcourse = ttk.Button(tab3, text='启动自动选课', command=self.procbatchtest)
+        btn_pro_selcourse.grid(column=3, row=0, sticky='W')
+
 
         # ----------------进度条-----------------------
         self.proc_frame = ttk.LabelFrame(self.init_window_name, text="进度信息", relief=SUNKEN)
