@@ -53,5 +53,5 @@ if __name__ == '__main__':
     #print(month_str)
     curdate=str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     print(curdate)
-    termNo=dateutil.getSCTermNo('2020秋')
+    termNo=dateutil.getSCTermNo('2019秋')
     print(termNo)
