@@ -294,37 +294,55 @@ class Service(object):
     def student_selectcourse(self,login_name,login_pwd):
         studinfo = self.login(login_name, login_pwd)
         if studinfo:
-            studenetId= studinfo['stu']['id']
-            studentNo=studinfo['stu']['studentNo']
-            semeId=str(int(studinfo['stu']['xueqi']['id'])+1) #本学期选下学期的课
-            stu_plan_name = studinfo['stu']['planObj']['name']
-            dateutil = DateUtil.DateUtil()
-            semenum = dateutil.getSCTermNo(stu_plan_name)
-            tobeelectlist=self.get_stu_tobeelect(studinfo)
-            selectcourselist=[]
-            for course in tobeelectlist:
-                # 优选本学期的推荐课,判断是否为推荐选课，如果是则选择
-                spacename=course['spec']
-                levelname=course['cengci']
-                courseterm=course['semenum']
-                courseid=course['courseId']
-                coursetype='必修'
-                if course['type']==0:
+            self.stu_selectcourse(studinfo)
+
+    def stu_selectcourse(self,studinfo,xuanke_counter=0):
+        studenetId= studinfo['stu']['id']
+        studentNo=studinfo['stu']['studentNo']
+        semeId=str(int(studinfo['stu']['xueqi']['id'])+1) #本学期选下学期的课
+        stu_plan_name = studinfo['stu']['planObj']['name']
+        dateutil = DateUtil.DateUtil()
+        semenum = dateutil.getSCTermNo(stu_plan_name)
+        tobeelectlistinfo=self.get_stu_tobeelect(studinfo)
+        if tobeelectlistinfo and len(tobeelectlistinfo)==2:
+            stu_cur_eleactive=tobeelectlistinfo[0]
+            tobeelectlist = tobeelectlistinfo[1]
+            if stu_cur_eleactive and len(stu_cur_eleactive)>0:
+                self.log('学生' + str(studentNo) + '已有选课记录，不再进行自动选课。', True)
+            else:
+                selectcourselist=[]
+                for course in tobeelectlist:
+                    # 优选本学期的推荐课,判断是否为推荐选课，如果是则选择
+                    spacename=course['spec']
+                    levelname=course['cengci']
+                    courseterm=course['semenum']
+                    courseid=course['courseId']
                     coursetype='必修'
-                if course['type']==1:
-                    coursetype = '选修'
-                if self.selectCourseService.isRecommedCourse(spacename,levelname,courseterm,courseid):
-                    selectcouse={"coursePlanId": course['id'], "courseD": course['courseD'], "studentId": studenetId, "studentNo": studentNo,
-                     "courseId": courseid, "planId": course['planId'], "semeId": semeId, "type":coursetype, "time": "2020-10-31 12:41:41"}
-                    selectcourselist.append(selectcouse)
-            selectcourse_data=json.dumps(selectcourselist,ensure_ascii=False)
-            print('本次选课-------')
-            print(selectcourse_data)
-            self.submit_selectcourse(studentNo,selectcourse_data)
-        return True
+                    if course['type']==0:
+                        coursetype='必修'
+                    if course['type']==1:
+                        coursetype = '选修'
+                    if self.selectCourseService.isRecommedCourse(spacename,levelname,courseterm,courseid):
+                        selectcouse={"coursePlanId": course['id'], "courseD": course['courseD'], "studentId": studenetId, "studentNo": studentNo,
+                         "courseId": courseid, "planId": course['planId'], "semeId": semeId, "type":coursetype, "time": "2020-10-31 12:41:41"}
+                        # 判断重复
+                        if selectcouse not in selectcourselist and self.checkhavesamecourse(selectcourselist,courseid)==False:
+                            selectcourselist.append(selectcouse)
+                        if xuanke_counter>0 and len(selectcourselist)>=xuanke_counter:
+                            break
+                selectcourse_data=json.dumps(selectcourselist,ensure_ascii=False)
+                self.submit_selectcourse(studinfo,selectcourse_data)
+
+    def checkhavesamecourse(self,selectcourselist,courseid):
+        for selectcouse in selectcourselist:
+            if selectcouse['courseId']==courseid:
+                return True
+        return False
+
 
     # 提交选课信息
-    def submit_selectcourse(self,studentNo,selectcourselist):
+    def submit_selectcourse(self,studinfo,selectcourselist):
+        studentNo = studinfo['stu']['studentNo']
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/save2'
         post_data = {
             'eArr':selectcourselist
@@ -344,6 +362,15 @@ class Service(object):
                     self.log('学生' + str(studentNo) + '自动选课成功！', True)
                 else:
                     self.log('学生' + str(studentNo) + '自动选课失败！'+xuanke_returnmsg, True)
+                    if xuanke_returncode==0:
+                        if '请选择课程' in xuanke_returnmsg:
+                            self.log('请检查是否导入推荐选课数据，请初始化推荐选课数据后开始重新选课', False)
+                        if '选课门数过多' in xuanke_returnmsg:
+                            xuanke_counters=re.findall(r'\d+', xuanke_returnmsg)
+                            if len(xuanke_counters)>0 and int(xuanke_counters[0])>0:
+                                xuanke_counter=int(xuanke_counters[0])
+                                self.log('学生' + str(studentNo) + '开始重新选课', True)
+                                self.stu_selectcourse(studinfo,xuanke_counter)
         except:
             self.log(neterror_msg, True)
 
@@ -377,16 +404,18 @@ class Service(object):
             stu_plan_id = student['stu']['planObj']['id']
             semeId=student['stu']['xueqi']['id']
             stu_courserplanlist=self.get_stu_courseplanlist(stu_No,stu_plan_name,stu_plan_id)
-            stu_eleactive=self.get_stu_eleactive(semeId,stu_No)
+            stu_eleactive_info=self.get_stu_eleactive(semeId,stu_No)
+            stu_cur_eleactive=stu_eleactive_info[0]
+            stu_eleactive=stu_eleactive_info[1]
+            tobeelectlist = copy.deepcopy(stu_courserplanlist)
             if len(stu_courserplanlist)>0 and len(stu_eleactive)>0:
                 for course in stu_courserplanlist:
                     print(course)
                 print("remove 前---------------")
-
                 for havecourse in stu_eleactive:
                     print(havecourse)
                 print("havecourse ---------------")
-                tobeelectlist=copy.deepcopy(stu_courserplanlist)
+
                 for course in stu_courserplanlist:
                     for havecourse in stu_eleactive:
                         if course['courseId']==havecourse['courseId']:
@@ -396,7 +425,7 @@ class Service(object):
                 print("remove 后---------------")
                 for course in tobeelectlist:
                     print(course)
-                return tobeelectlist
+        return stu_cur_eleactive,tobeelectlist
 
     # 获取学生选课计划
     def get_stu_courseplanlist(self,login_name,stu_plan_name,stu_plan_id):
@@ -433,13 +462,41 @@ class Service(object):
             if response.status_code == 200:
                 stu_course_json = json.loads(response.text)
                 stu_elective = stu_course_json['pager']['datas']
-                stu_have_elect=[]
+                stu_have_elect=[] # 历史已选课程
+                stu_cur_elect=[]  # 当前已经课程
                 for course in stu_elective:
-                    if "examScore" in course:
+                    iscourseinhis=self.check_ifcourseinhis(semeId,studentNo,course['courseId'])
+                    if "examScore" in course or iscourseinhis:
                         stu_have_elect.append(course)
+                    else:
+                        stu_cur_elect.append(course)
         except:
             self.log(neterror_msg, True)
-        return stu_have_elect
+        return stu_cur_elect,stu_have_elect
+
+    def check_ifcourseinhis(self,semeId,studentNo,courseId):
+        stu_his_elective=self.get_stu_his_eleactive(semeId,studentNo)
+        for course in stu_his_elective:
+            if course['courseId']==courseId:
+                return True
+        return False
+
+    def get_stu_his_eleactive(self,semeId,studentNo):
+        request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/list2'
+        post_data = {
+            'page': 1,
+            'pageSize': 100,
+            'eleactive.semeId':semeId,
+            'eleactive.studentNo': studentNo
+        }
+        try:
+            response = self.session.post(request_url, data=post_data, headers=self.headers)
+            if response.status_code == 200:
+                stu_course_json = json.loads(response.text)
+                stu_his_elective = stu_course_json['pager']['datas']
+        except:
+            self.log(neterror_msg, True)
+        return stu_his_elective
 
 
     # 显示单个学生的作业进度
@@ -451,6 +508,8 @@ class Service(object):
     def log(self,logstr,islog=False):
         if self.utiltools is not None:
             self.utiltools.log(logstr,islog)
+        else:
+            print(logstr)
 
     def get_itemdelaytime(self):
         itemdelaytime = random.randint(1, 3)  # 等待时间
@@ -482,6 +541,12 @@ class Service(object):
         if self.utiltools is not None:
             self.utiltools.set_status_bar(str)
 
+    def check_selectwork_ishaveinitdata(self):
+        return self.selectworkService.ishaveinitdata()
+
+    def check_selectcourse_ishaveinitdata(self):
+        return self.selectCourseService.ishaveinitdata()
+
     def init_selectworkdata(self,filepath=None):
         self.selectworkService.initdata(filepath)
 
@@ -496,5 +561,5 @@ if __name__=='__main__':
     #service.getstudentpaper(1002,1107)
     #service.getstudentpaper('201820113109','684','医古文B',684)
     #print(service.getstudentlearninfo('46903'))
-    service.student_selectcourse('201920192019','201920192019')
+    service.student_selectcourse('202020121200','1qaz2wsx')
     service.get_biyetiaojian()

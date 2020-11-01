@@ -17,10 +17,10 @@ class SelectWorkService(object):
         conn = sqlite3.connect(dbname)
         print("Opened database successfully")
         c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS DOWORK
+        c.execute('''CREATE TABLE IF NOT EXISTS WS_DOWORK
                (STU_NO       VARCHAR(20)   NOT NULL,
                 STU_DOWORK       VARCHAR(50)    NOT NULL);''')
-        print("Table created successfully")
+        print("Table WS_DOWORK created successfully")
         conn.commit()
         conn.close()
 
@@ -40,29 +40,37 @@ class SelectWorkService(object):
             sheet1 = book.sheets()[0]
             nrows = sheet1.nrows
             conn = sqlite3.connect(dbname)
-            delectSQL='delete from DOWORK'
+            delectSQL='delete from WS_DOWORK'
             conn.execute(delectSQL)
             conn.commit()
             i = 0
             maximum = nrows
-            for row in range(nrows):
-                i = i + 1
-                self.show_dowork_proc(maximum, i)
-                row_values = sheet1.row_values(row)
-                if row>0:
-                    std_no = row_values[1]
-                    std_dowork = row_values[2]
-                    insertSQL='insert into DOWORK(STU_NO,STU_DOWORK) values (\''+std_no+'\',\''+std_dowork+'\')'
-                    self.log(insertSQL)
-                    conn.execute(insertSQL)
-                    conn.commit()
-            conn.close()
-            self.init_procbar()
-            self.log('初始化自定义用户作业数据成功！')
-            self.set_status('初始化自定义用户作业数据成功！')
+            indexrow_values = sheet1.row_values(0)
+            if '学号' in indexrow_values and '作业' in indexrow_values:
+                index_stuno = indexrow_values.index('学号')
+                index_stuwork = indexrow_values.index('作业')
+                for row in range(nrows):
+                    i = i + 1
+                    self.show_dowork_proc(maximum, i)
+                    row_values = sheet1.row_values(row)
+                    if row>0:
+                        std_no = row_values[index_stuno]
+                        std_dowork = row_values[index_stuwork]
+                        insertSQL='insert into WS_DOWORK(STU_NO,STU_DOWORK) values (\''+std_no+'\',\''+std_dowork+'\')'
+                        self.log(insertSQL)
+                        conn.execute(insertSQL)
+                        conn.commit()
+                conn.close()
+                self.init_procbar()
+                self.log('初始化自定义用户作业数据成功！')
+                self.set_status('初始化自定义用户作业数据成功！')
+            else:
+                self.init_procbar()
+                self.log('初始化自定义用户作业数据失败，请检查导入的文件格式！')
+                self.set_status('初始化数据失败！')
         except :
             self.init_procbar()
-            self.log('初始化自定义用户作业数据失败，请检查导入的文件格式！')
+            self.log('初始化自定义用户作业数据失败，请重新运行该程序！')
             self.set_status('初始化数据失败！')
             exit()
 
@@ -71,7 +79,7 @@ class SelectWorkService(object):
     def isdowork(self,stu_no,stu_dowork):
         do=False
         conn = sqlite3.connect(dbname)
-        selectSQL = 'select STU_DOWORK from DOWORK where STU_NO=\'' + stu_no+'\' and STU_DOWORK=\''+stu_dowork+'\''
+        selectSQL = 'select STU_DOWORK from WS_DOWORK where STU_NO=\'' + stu_no+'\' and STU_DOWORK=\''+stu_dowork+'\''
         cursor = conn.execute(selectSQL)
         if cursor.fetchone():
             do=True
@@ -82,12 +90,23 @@ class SelectWorkService(object):
     def isselectdo(self,stu_no):
         selectdo=False
         conn = sqlite3.connect(dbname)
-        selectSQL = 'select STU_DOWORK from DOWORK where STU_NO=' + stu_no
+        selectSQL = 'select STU_DOWORK from WS_DOWORK where STU_NO=' + stu_no
         cursor = conn.execute(selectSQL)
         if cursor.fetchone():
             selectdo=True
         conn.close
         return selectdo
+
+    # 判断是否有初始化数据
+    def ishaveinitdata(self):
+        havedata=False
+        conn = sqlite3.connect(dbname)
+        selectSQL = 'select STU_DOWORK from WS_DOWORK'
+        cursor = conn.execute(selectSQL)
+        if cursor.fetchone():
+            havedata=True
+        conn.close
+        return havedata
 
 
 
@@ -116,4 +135,3 @@ class SelectWorkService(object):
 
 if __name__=='__main__':
     wsDBconn=SelectWorkService()
-    wsDBconn.getdoworkbystuno('202020121200')

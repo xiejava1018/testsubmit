@@ -26,6 +26,8 @@ class UtilTools(object):
     def inserttolog(self, str):
         if self.testSubmitGUI is not None:
             self.testSubmitGUI.insertToLog(str)
+        else:
+            print(str)
 
     # 记日志
     def log(self, logstr, islog=False):

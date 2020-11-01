@@ -61,7 +61,7 @@ class TestSubmitGUI():
 
     #设置窗口
     def set_init_window(self):
-        self.init_window_name.title("自动作业工具_v0.9beta")           #窗口名
+        self.init_window_name.title("自动作业工具_v1.0")           #窗口名
         #self.init_window_name.geometry('320x160+10+10')                         #290 160为窗口大小，+10 +10 定义窗口弹出时的默认展示位置
         self.init_window_name.geometry('600x480+10+10')
         #self.init_window_name["bg"] = "pink"                                    #窗口背景色，其他背景色见：blog.csdn.net/chl0000/article/details/7657887
@@ -332,14 +332,16 @@ class TestSubmitGUI():
         autoloaddata = self.config.get_configvalue('setting', 'autoloaddata')
         if 'True'==autoloaddata:
             try:
-                _thread.start_new_thread(self.init_data,())
+                _thread.start_new_thread(self.auto_init_data,())
             except:
                 print("Error: 无法启动线程")
                 self.service.log('Error: 无法启动线程', True)
 
-    def init_data(self):
-        self.service.init_selectworkdata()
-        self.service.init_selectcoursedata()
+    def auto_init_data(self):
+        if self.service.check_selectwork_ishaveinitdata()==False:
+            self.service.init_selectworkdata()
+        if self.service.check_selectcourse_ishaveinitdata()==False:
+            self.service.init_selectcoursedata()
         self.set_status_bar('初始化数据成功！')
 
 
