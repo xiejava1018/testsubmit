@@ -309,8 +309,10 @@ class Service(object):
             tobeelectlist = tobeelectlistinfo[1]
             if stu_cur_eleactive and len(stu_cur_eleactive)>0:
                 self.log('学生' + str(studentNo) + '已有选课记录，不再进行自动选课。', True)
+                self.selectCourseService.insert_tobeslectcourselist(studentNo, tobeelectlist)
             else:
                 selectcourselist=[]
+                self.selectCourseService.insert_tobeslectcourselist(studentNo,tobeelectlist)
                 for course in tobeelectlist:
                     # 优选本学期的推荐课,判断是否为推荐选课，如果是则选择
                     spacename=course['spec']
@@ -331,7 +333,7 @@ class Service(object):
                         if xuanke_counter>0 and len(selectcourselist)>=xuanke_counter:
                             break
                 selectcourse_data=json.dumps(selectcourselist,ensure_ascii=False)
-                self.submit_selectcourse(studinfo,selectcourse_data)
+                #self.submit_selectcourse(studinfo,selectcourse_data)
 
     def checkhavesamecourse(self,selectcourselist,courseid):
         for selectcouse in selectcourselist:

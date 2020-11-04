@@ -20,14 +20,34 @@ class SelectCourseService(object):
         c.execute('''CREATE TABLE IF NOT EXISTS WS_COURSE
                (SPEC_NAME       VARCHAR(20)   NOT NULL,
                 LEVEL_NAME      VARCHAR(20)   NOT NULL,
-                COUSE_TERM      VARCHAR(20)   NOT NULL,
-                COUSE_NO        VARCHAR(20)   NOT NULL,
-                COUSE_NAME      VARCHAR(50)   NOT NULL,
-                COUSE_TYPE      VARCHAR(50)   NOT NULL,
-                COUSE_CREDIT    NUMBER (2)    NOT NULL,
-                COUSE_TESTTYPE  VARCHAR(10)   NOT NULL,
-                COUSE_ID        VARCHAR(20)   NOT NULL,
-                COUSE_RECOMMEND NUMBER(1)     default 0);''')
+                COURSE_TERM      VARCHAR(20)   NOT NULL,
+                COURSE_NO        VARCHAR(20)   NOT NULL,
+                COURSE_NAME      VARCHAR(50)   NOT NULL,
+                COURSE_TYPE      VARCHAR(10)   NOT NULL,
+                COURSE_CREDIT    NUMBER (2)    NOT NULL,
+                COURSE_TESTTYPE  VARCHAR(10)   NOT NULL,
+                COURSE_ID        VARCHAR(20)   NOT NULL,
+                COURSE_RECOMMEND NUMBER(1)     default 0);''')
+        print("Table WS_COURSE created successfully")
+        c.execute('''CREATE TABLE IF NOT EXISTS WS_TOSELECT_COURSE
+               (COURSE_STU_NO        VARCHAR(20)   NOT NULL,
+                COURSE_CENGCI        VARCHAR(20)   NOT NULL,
+                COURSE_COURSED       VARCHAR(50)   NOT NULL,
+                COURSE_COURSEID      VARCHAR(20)   NOT NULL,
+                COURSE_EXAMSCOREPE   VARCHAR(20)   NOT NULL,
+                COURSE_EXAMTYPE      VARCHAR(20)   NOT NULL,
+                COURSE_ID            VARCHAR(20)   NOT NULL,
+                COURSE_LEARNHOUR     VARCHAR(20)   NOT NULL,
+                COURSE_LEARNSCORE    VARCHAR(20)   NOT NULL,
+                COURSE_MAINFLAG      VARCHAR(20)   NOT NULL,
+                COURSE_PLANID        VARCHAR(20)   NOT NULL,
+                COURSE_RECOMFLAG     VARCHAR(20)   NOT NULL,
+                COURSE_SEMENUM       VARCHAR(20)   NOT NULL,
+                COURSE_SPEC          VARCHAR(20)   NOT NULL,
+                COURSE_SPECID        VARCHAR(20)   NOT NULL,
+                COURSE_TEACHTYPE     VARCHAR(10)   NOT NULL, 
+                COURSE_TYPE          VARCHAR(10)   NOT NULL, 
+                COURSE_WORKSCOREPE   VARCHAR(20)   NOT NULL);''')
         print("Table WS_COURSE created successfully")
         conn.commit()
         conn.close()
@@ -92,7 +112,7 @@ class SelectCourseService(object):
                                 if '是'==row_values[courserecomm_index]:
                                     courserecommend='1'
                                 courseid = str(int(row_values[courseid_index]))
-                                insertSQL='insert into WS_COURSE(SPEC_NAME,LEVEL_NAME,COUSE_TERM,COUSE_NO,COUSE_NAME,COUSE_TYPE,COUSE_CREDIT,COUSE_TESTTYPE,COUSE_ID,COUSE_RECOMMEND) ' \
+                                insertSQL='insert into WS_COURSE(SPEC_NAME,LEVEL_NAME,COURSE_TERM,COURSE_NO,COURSE_NAME,COURSE_TYPE,COURSE_CREDIT,COURSE_TESTTYPE,COURSE_ID,COURSE_RECOMMEND) ' \
                                           'values (\''+spacename+'\',\''+levelname+'\',\''+courseterm+'\',\''+courseno+'\',\''+coursename+'\',\''+coursetype+'\',\''+coursecredit+'\'' \
                                           ',\''+coursetesttype+'\',\''+courseid+'\',\''+courserecommend+'\')'
                                 #self.log(insertSQL)
@@ -118,11 +138,55 @@ class SelectCourseService(object):
             self.set_status('初始化数据失败！')
             exit()
 
+    def recommend_course(self,stu_no):
+        conn=sqlite3.connect(dbname)
+        selectSQL=''' '''
+        conn.execute(selectSQL)
+        conn.commit()
+
+    def insert_tobeslectcourselist(self,stu_no,tobeselectcourses):
+        for selectcourse in tobeselectcourses:
+            self.insert_selctcourse(stu_no,selectcourse)
+
+    def insert_selctcourse(self,stu_no,selectcourse):
+        conn = sqlite3.connect(dbname)
+        '''{'cengci': '高起专', 'courseD': '生理学Z', 'courseId': 63, 'examScorePe': 60, 'examtype': 0, 'id': 46463,
+         'learnHour': 72, 'learnScore': 4, 'mainFlag': 0, 'planId': 755, 'recomFlag': 0, 'semenum': 2, 'spec': '中药学',
+         'specId': 2, 'teachType': 1, 'type': 1, 'workScorePe': 40}'''
+        print(str(selectcourse['workScorePe']))
+        table='WS_TOSELECT_COURSE'
+        data = {
+            'COURSE_STU_NO':stu_no,
+            'COURSE_CENGCI':selectcourse['cengci'],
+            'COURSE_COURSED':selectcourse['courseD'],
+            'COURSE_COURSEID':selectcourse['courseId'],
+            'COURSE_EXAMSCOREPE':selectcourse['examScorePe'],
+            'COURSE_EXAMTYPE':selectcourse['examtype'],
+            'COURSE_ID':selectcourse['id'],
+            'COURSE_LEARNHOUR':selectcourse['learnHour'],
+            'COURSE_LEARNSCORE':selectcourse['learnScore'],
+            'COURSE_MAINFLAG':selectcourse['mainFlag'],
+            'COURSE_PLANID':selectcourse['planId'],
+            'COURSE_RECOMFLAG':selectcourse['recomFlag'],
+            'COURSE_SEMENUM':selectcourse['semenum'],
+            'COURSE_SPEC':selectcourse['spec'],
+            'COURSE_SPECID':selectcourse['specId'],
+            'COURSE_TEACHTYPE':selectcourse['type'],
+            'COURSE_TYPE':selectcourse['workScorePe']
+        }
+        keys = ','.join(data.keys())
+        values = ','.join(['%s'] * len(data))
+        insertSQL='INSERT INTO {table}({keys}) VALUES ({values})'.format(table=table, keys=keys, values=values)
+        print(insertSQL)
+        conn.execute(insertSQL,tuple(data.values()))
+        conn.commit()
+
+
     # 判断是否是推荐课程
     def isRecommedCourse(self,spacename,levelname,courseterm,courseid):
         isRecommed=False
         conn = sqlite3.connect(dbname)
-        selectSQL = 'select * from WS_COURSE where SPEC_NAME=\'' + spacename+'\' and LEVEL_NAME=\''+levelname+'\' and COUSE_TERM=\''+str(courseterm)+'\' and COUSE_ID=\''+str(courseid)+'\' and COUSE_RECOMMEND=1'
+        selectSQL = 'select * from WS_COURSE where SPEC_NAME=\'' + spacename+'\' and LEVEL_NAME=\''+levelname+'\' and COURSE_TERM=\''+str(courseterm)+'\' and COURSE_ID=\''+str(courseid)+'\' and COURSE_RECOMMEND=1'
         cursor = conn.execute(selectSQL)
         print(selectSQL)
         if cursor.fetchone():
