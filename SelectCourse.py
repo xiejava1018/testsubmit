@@ -175,7 +175,7 @@ class SelectCourseService(object):
             'COURSE_TYPE':selectcourse['workScorePe']
         }
         keys = ','.join(data.keys())
-        values = ','.join(['%s'] * len(data))
+        values = ','.join(['\'%s\''] * len(data))
         insertSQL='INSERT INTO {table}({keys}) VALUES ({values})'.format(table=table, keys=keys, values=values)
         print(insertSQL)
         conn.execute(insertSQL,tuple(data.values()))
