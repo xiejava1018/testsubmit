@@ -292,9 +292,11 @@ class Service(object):
 
     # 学生选课
     def student_selectcourse(self,login_name,login_pwd):
+        self.set_status(str(login_name) + '开始自动选课...')
         studinfo = self.login(login_name, login_pwd)
         if studinfo:
             self.stu_selectcourse(studinfo)
+        self.set_status(str(login_name) + '自动选课执行完成！')
 
     def stu_selectcourse(self,studinfo,xuanke_counter=0):
         studenetId= studinfo['stu']['id']
@@ -307,33 +309,42 @@ class Service(object):
         if tobeelectlistinfo and len(tobeelectlistinfo)==2:
             stu_cur_eleactive=tobeelectlistinfo[0]
             tobeelectlist = tobeelectlistinfo[1]
-            if stu_cur_eleactive and len(stu_cur_eleactive)>0:
+            if stu_cur_eleactive and len(stu_cur_eleactive)>0 and self.getifforceselectcourse()!=True:
                 self.log('学生' + str(studentNo) + '已有选课记录，不再进行自动选课。', True)
-                self.selectCourseService.insert_tobeslectcourselist(studentNo, tobeelectlist)
             else:
-                selectcourselist=[]
-                self.selectCourseService.insert_tobeslectcourselist(studentNo,tobeelectlist)
+                # 优选本学期的推荐课,判断是否为推荐选课
+                tobeelectlist = self.selectCourseService.get_recommend_courselist(studentNo)
+                if xuanke_counter>0:
+                    # 在所有推荐选课列表中先选主修课再选选修课
+                    mainstudy_courselist=self.selectCourseService.get_recommend_courselist(studentNo,0)
+                    if len(mainstudy_courselist)>=xuanke_counter:
+                        tobeelectlist=mainstudy_courselist[0:xuanke_counter]
+                    else:
+                        selectstudy_courselist=self.selectCourseService.get_recommend_courselist(studentNo,1)
+                        selectstudy_coursecount=len(selectstudy_courselist)
+                        if selectstudy_coursecount>0:
+                            selectstudycount=xuanke_counter-len(mainstudy_courselist)
+                            if selectstudycount>selectstudy_coursecount:
+                                selectstudycount=selectstudy_coursecount
+                                mainstudy_courselist.extend(selectstudy_courselist[0:selectstudycount])
+                            tobeelectlist =mainstudy_courselist
+                # 组织自动选课数据
+                selectcourselist = []
                 for course in tobeelectlist:
                     # 优选本学期的推荐课,判断是否为推荐选课，如果是则选择
-                    spacename=course['spec']
-                    levelname=course['cengci']
-                    courseterm=course['semenum']
-                    courseid=course['courseId']
-                    coursetype='必修'
-                    if course['type']==0:
-                        coursetype='必修'
-                    if course['type']==1:
+                    courseid = course['courseId']
+                    coursetype = '必修'
+                    if course['type'] == 0:
+                        coursetype = '必修'
+                    if course['type'] == 1:
                         coursetype = '选修'
-                    if self.selectCourseService.isRecommedCourse(spacename,levelname,courseterm,courseid):
-                        selectcouse={"coursePlanId": course['id'], "courseD": course['courseD'], "studentId": studenetId, "studentNo": studentNo,
-                         "courseId": courseid, "planId": course['planId'], "semeId": semeId, "type":coursetype, "time": "2020-10-31 12:41:41"}
-                        # 判断重复
-                        if selectcouse not in selectcourselist and self.checkhavesamecourse(selectcourselist,courseid)==False:
-                            selectcourselist.append(selectcouse)
-                        if xuanke_counter>0 and len(selectcourselist)>=xuanke_counter:
-                            break
+                    selectcouse = {"coursePlanId": course['id'], "courseD": course['courseD'],
+                                   "studentId": studenetId, "studentNo": studentNo,
+                                   "courseId": courseid, "planId": course['planId'], "semeId": semeId,
+                                   "type": coursetype, "time": "2020-10-31 12:41:41"}
+                    selectcourselist.append(selectcouse)
                 selectcourse_data=json.dumps(selectcourselist,ensure_ascii=False)
-                #self.submit_selectcourse(studinfo,selectcourse_data)
+                self.submit_selectcourse(studinfo,selectcourse_data)
 
     def checkhavesamecourse(self,selectcourselist,courseid):
         for selectcouse in selectcourselist:
@@ -373,6 +384,8 @@ class Service(object):
                                 xuanke_counter=int(xuanke_counters[0])
                                 self.log('学生' + str(studentNo) + '开始重新选课', True)
                                 self.stu_selectcourse(studinfo,xuanke_counter)
+                # 删除选课记录
+                self.selectCourseService.delete_selctcourse(studentNo)
         except:
             self.log(neterror_msg, True)
 
@@ -425,8 +438,9 @@ class Service(object):
                             if course in tobeelectlist:
                                 tobeelectlist.remove(course)
                 print("remove 后---------------")
+                self.selectCourseService.delete_selctcourse(stu_No)
                 for course in tobeelectlist:
-                    print(course)
+                    self.selectCourseService.insert_selctcourse(stu_No, course)
         return stu_cur_eleactive,tobeelectlist
 
     # 获取学生选课计划
@@ -537,6 +551,14 @@ class Service(object):
                 delaytime = random.randint(int(delayarry[0]), int(delayarry[1]))
         return delaytime
 
+    def getifforceselectcourse(self):
+        forceselectcourse = self.config.get_configvalue('setting', 'forceselectcourse')
+        if forceselectcourse is not None and forceselectcourse=='True':
+            forceselectcourse = True
+        else:
+            forceselectcourse = False
+        return forceselectcourse
+
 
     # 设置状态栏的状态信息
     def set_status(self,str):
@@ -563,5 +585,6 @@ if __name__=='__main__':
     #service.getstudentpaper(1002,1107)
     #service.getstudentpaper('201820113109','684','医古文B',684)
     #print(service.getstudentlearninfo('46903'))
-    service.student_selectcourse('202020121200','1qaz2wsx')
-    service.get_biyetiaojian()
+    #service.student_selectcourse('201820112006','466183314')
+    stud_info=service.login(login_name='201820112006', login_psw='466183314')
+    service.stu_selectcourse(stud_info,16)

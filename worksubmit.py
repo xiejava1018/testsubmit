@@ -173,7 +173,6 @@ class TestSubmitGUI():
         studentpwd = self.studentpwdEntered.get()
         try:
             _thread.start_new_thread(self.service.student_selectcourse, (studentname, studentpwd,))
-            self.set_status_bar(str(studentname)+'自动选课执行完成！')
         except:
             print("Error: 无法启动线程")
             self.service.log('Error: 无法启动线程', True)

@@ -48,7 +48,7 @@ class SelectCourseService(object):
                 COURSE_TEACHTYPE     VARCHAR(10)   NOT NULL, 
                 COURSE_TYPE          VARCHAR(10)   NOT NULL, 
                 COURSE_WORKSCOREPE   VARCHAR(20)   NOT NULL);''')
-        print("Table WS_COURSE created successfully")
+        print("Table WS_TOSELECT_COURSE created successfully")
         conn.commit()
         conn.close()
 
@@ -138,49 +138,92 @@ class SelectCourseService(object):
             self.set_status('初始化数据失败！')
             exit()
 
-    def recommend_course(self,stu_no):
+    def get_recommend_courselist(self,stu_no,course_type=None):
+        # course_type=0 必修，course_type=1 选修
         conn=sqlite3.connect(dbname)
-        selectSQL=''' '''
-        conn.execute(selectSQL)
-        conn.commit()
+        if course_type!=None:
+            selectSQL = 'select a.* from WS_TOSELECT_COURSE a,WS_COURSE b where b.SPEC_NAME=a.COURSE_SPEC and b.LEVEL_NAME=a.COURSE_CENGCI ' \
+                        'and b.COURSE_TERM=a.COURSE_SEMENUM and b.COURSE_ID=a.COURSE_COURSEID and b.COURSE_RECOMMEND=1 and a.COURSE_STU_NO=\''+str(stu_no)+'\' and a.COURSE_TYPE=\''+str(course_type)+'\' order by a.COURSE_SEMENUM desc,a.COURSE_TYPE '
+            print(selectSQL)
+            cursor = conn.execute(selectSQL)
+        else:
+            selectSQL='''select a.* from WS_TOSELECT_COURSE a,WS_COURSE b where b.SPEC_NAME=a.COURSE_SPEC and b.LEVEL_NAME=a.COURSE_CENGCI and b.COURSE_TERM=a.COURSE_SEMENUM
+                                                       and b.COURSE_ID=a.COURSE_COURSEID and b.COURSE_RECOMMEND=1 and a.COURSE_STU_NO=? order by a.COURSE_SEMENUM desc,a.COURSE_TYPE '''
+            cursor = conn.execute(selectSQL,tuple({stu_no,}))
+        recommend_course_list =[]
+        for course_row in cursor.fetchall():
+            course={'cengci': str(course_row[1]),
+                    'courseD': str(course_row[2]),
+                    'courseId':str(course_row[3]),
+                    'examScorePe':str(course_row[4]),
+                    'examtype':str(course_row[5]),
+                    'id': str(course_row[6]),
+                    'learnHour': str(course_row[7]),
+                    'learnScore':str(course_row[8]),
+                    'mainFlag':str(course_row[9]),
+                    'planId':str(course_row[10]),
+                    'recomFlag':str(course_row[11]),
+                    'semenum':str(course_row[12]),
+                    'spec':str(course_row[13]),
+                    'specId':str(course_row[14]),
+                    'teachType':str(course_row[15]),
+                    'type':str(course_row[16]),
+                    'workScorePe':str(course_row[17])}
+            recommend_course_list.append(course)
+        conn.close()
+        return recommend_course_list
 
+    # 根据学生学号插入学生选课信息
     def insert_tobeslectcourselist(self,stu_no,tobeselectcourses):
         for selectcourse in tobeselectcourses:
             self.insert_selctcourse(stu_no,selectcourse)
 
+    # 插入选课数据到选课表
     def insert_selctcourse(self,stu_no,selectcourse):
         conn = sqlite3.connect(dbname)
         '''{'cengci': '高起专', 'courseD': '生理学Z', 'courseId': 63, 'examScorePe': 60, 'examtype': 0, 'id': 46463,
          'learnHour': 72, 'learnScore': 4, 'mainFlag': 0, 'planId': 755, 'recomFlag': 0, 'semenum': 2, 'spec': '中药学',
          'specId': 2, 'teachType': 1, 'type': 1, 'workScorePe': 40}'''
-        print(str(selectcourse['workScorePe']))
+
         table='WS_TOSELECT_COURSE'
         data = {
-            'COURSE_STU_NO':stu_no,
-            'COURSE_CENGCI':selectcourse['cengci'],
-            'COURSE_COURSED':selectcourse['courseD'],
-            'COURSE_COURSEID':selectcourse['courseId'],
-            'COURSE_EXAMSCOREPE':selectcourse['examScorePe'],
-            'COURSE_EXAMTYPE':selectcourse['examtype'],
-            'COURSE_ID':selectcourse['id'],
-            'COURSE_LEARNHOUR':selectcourse['learnHour'],
-            'COURSE_LEARNSCORE':selectcourse['learnScore'],
-            'COURSE_MAINFLAG':selectcourse['mainFlag'],
-            'COURSE_PLANID':selectcourse['planId'],
-            'COURSE_RECOMFLAG':selectcourse['recomFlag'],
-            'COURSE_SEMENUM':selectcourse['semenum'],
-            'COURSE_SPEC':selectcourse['spec'],
-            'COURSE_SPECID':selectcourse['specId'],
-            'COURSE_TEACHTYPE':selectcourse['type'],
-            'COURSE_TYPE':selectcourse['workScorePe']
+            'COURSE_STU_NO': stu_no,
+            'COURSE_CENGCI': selectcourse['cengci'],
+            'COURSE_COURSED': selectcourse['courseD'],
+            'COURSE_COURSEID': selectcourse['courseId'],
+            'COURSE_EXAMSCOREPE': selectcourse['examScorePe'],
+            'COURSE_EXAMTYPE': selectcourse['examtype'],
+            'COURSE_ID': selectcourse['id'],
+            'COURSE_LEARNHOUR': selectcourse['learnHour'],
+            'COURSE_LEARNSCORE': selectcourse['learnScore'],
+            'COURSE_MAINFLAG': selectcourse['mainFlag'],
+            'COURSE_PLANID': selectcourse['planId'],
+            'COURSE_RECOMFLAG': selectcourse['recomFlag'],
+            'COURSE_SEMENUM': selectcourse['semenum'],
+            'COURSE_SPEC': selectcourse['spec'],
+            'COURSE_SPECID': selectcourse['specId'],
+            'COURSE_TEACHTYPE': selectcourse['teachType'],
+            'COURSE_TYPE': selectcourse['type'],
+            'COURSE_WORKSCOREPE': selectcourse['workScorePe'],
         }
         keys = ','.join(data.keys())
-        values = ','.join(['\'%s\''] * len(data))
-        insertSQL='INSERT INTO {table}({keys}) VALUES ({values})'.format(table=table, keys=keys, values=values)
+        values = ','.join(['?'] * len(data))
+        #keys=tuple(data.keys())
+        #values =tuple(data.values())
+        insertSQL='INSERT INTO {table} ({keys}) VALUES ({values})'.format(table=table, keys=keys, values=values)
         print(insertSQL)
+        print(tuple(data.values()))
         conn.execute(insertSQL,tuple(data.values()))
         conn.commit()
+        conn.close()
 
+    # 删除学生选课记录
+    def delete_selctcourse(self,stu_no):
+        conn = sqlite3.connect(dbname)
+        deleteSQL = 'delete from WS_TOSELECT_COURSE where COURSE_STU_NO=?'
+        conn.execute(deleteSQL, tuple({stu_no,}))
+        conn.commit()
+        conn.close()
 
     # 判断是否是推荐课程
     def isRecommedCourse(self,spacename,levelname,courseterm,courseid):
@@ -230,4 +273,4 @@ class SelectCourseService(object):
 
 if __name__=='__main__':
     wsDBconn=SelectCourseService()
-    wsDBconn.initdata()
+    wsDBconn.get_recommend_course('201820112006')
