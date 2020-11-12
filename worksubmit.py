@@ -92,7 +92,7 @@ class TestSubmitGUI():
         ttk.Label(tab1, text="密码:").grid(column=2, row=0, sticky='W')
         # Adding a Textbox Entry widget
         self.student_pwd = tk.StringVar()
-        self.studentpwdEntered = ttk.Entry(tab1, show='*',width=20, textvariable=self.student_pwd)
+        self.studentpwdEntered = ttk.Entry(tab1,width=20, textvariable=self.student_pwd)
         self.student_pwd.set(r'1qaz2wsx')
         self.studentpwdEntered.grid(column=3, row=0, sticky='W')
 

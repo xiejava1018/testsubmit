@@ -148,7 +148,7 @@ class SelectCourseService(object):
             cursor = conn.execute(selectSQL)
         else:
             selectSQL='''select a.* from WS_TOSELECT_COURSE a,WS_COURSE b where b.SPEC_NAME=a.COURSE_SPEC and b.LEVEL_NAME=a.COURSE_CENGCI and b.COURSE_TERM=a.COURSE_SEMENUM
-                                                       and b.COURSE_ID=a.COURSE_COURSEID and b.COURSE_RECOMMEND=1 and a.COURSE_STU_NO=? order by a.COURSE_SEMENUM desc,a.COURSE_TYPE '''
+                                                       and b.COURSE_ID=a.COURSE_COURSEID and b.COURSE_RECOMMEND=1 and a.COURSE_STU_NO=? order by a.COURSE_SEMENUM desc,a.COURSE_TYPE,a.COURSE_LEARNSCORE desc '''
             cursor = conn.execute(selectSQL,tuple({stu_no,}))
         recommend_course_list =[]
         for course_row in cursor.fetchall():

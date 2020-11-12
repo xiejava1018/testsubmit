@@ -116,7 +116,7 @@ class Service(object):
             self.log(neterror_msg, True)
 
     # 获取学生学习计划
-    def getstudentlearninfo(self,coursePlanId):
+    def getstudentlearninfo(self,coursePlanId,retrytime=None):
         iflearn=False
         # 作业列表URL
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/courseplan/learninfo?coursePlanId='+str(coursePlanId)
@@ -131,6 +131,8 @@ class Service(object):
                             iflearn=True
         except :
             self.log(neterror_msg, True)
+            retrytime=self.get_retrytime()
+            self.getstudentlearninfo(coursePlanId,retrytime)
         return iflearn
 
     # 获取学生作业
@@ -316,20 +318,22 @@ class Service(object):
                 tobeelectlist = self.selectCourseService.get_recommend_courselist(studentNo)
                 if xuanke_counter>0:
                     # 在所有推荐选课列表中先选主修课再选选修课
-                    mainstudy_courselist=self.selectCourseService.get_recommend_courselist(studentNo,0)
-                    if len(mainstudy_courselist)>=xuanke_counter:
-                        tobeelectlist=mainstudy_courselist[0:xuanke_counter]
-                    else:
-                        selectstudy_courselist=self.selectCourseService.get_recommend_courselist(studentNo,1)
-                        selectstudy_coursecount=len(selectstudy_courselist)
-                        if selectstudy_coursecount>0:
-                            selectstudycount=xuanke_counter-len(mainstudy_courselist)
-                            if selectstudycount>selectstudy_coursecount:
-                                selectstudycount=selectstudy_coursecount
-                                mainstudy_courselist.extend(selectstudy_courselist[0:selectstudycount])
-                            tobeelectlist =mainstudy_courselist
+                    #mainstudy_courselist=self.selectCourseService.get_recommend_courselist(studentNo,0)
+                    #if len(mainstudy_courselist)>=xuanke_counter:
+                    #    tobeelectlist=mainstudy_courselist[0:xuanke_counter]
+                    #else:
+                    #    selectstudy_courselist=self.selectCourseService.get_recommend_courselist(studentNo,1)
+                    #    selectstudy_coursecount=len(selectstudy_courselist)
+                    #    if selectstudy_coursecount>0:
+                    #        selectstudycount=xuanke_counter-len(mainstudy_courselist)
+                    #        if selectstudycount>selectstudy_coursecount:
+                    #            selectstudycount=selectstudy_coursecount
+                    #            mainstudy_courselist.extend(selectstudy_courselist[0:selectstudycount])
+                    #        tobeelectlist =mainstudy_courselist
+                    tobeelectlist=tobeelectlist[0:xuanke_counter]
                 # 组织自动选课数据
                 selectcourselist = []
+                selectcoursetime=self.getcurrenttime()
                 for course in tobeelectlist:
                     # 优选本学期的推荐课,判断是否为推荐选课，如果是则选择
                     courseid = course['courseId']
@@ -341,7 +345,7 @@ class Service(object):
                     selectcouse = {"coursePlanId": course['id'], "courseD": course['courseD'],
                                    "studentId": studenetId, "studentNo": studentNo,
                                    "courseId": courseid, "planId": course['planId'], "semeId": semeId,
-                                   "type": coursetype, "time": "2020-10-31 12:41:41"}
+                                   "type": coursetype, "time": selectcoursetime}
                     selectcourselist.append(selectcouse)
                 selectcourse_data=json.dumps(selectcourselist,ensure_ascii=False)
                 self.submit_selectcourse(studinfo,selectcourse_data)
@@ -559,6 +563,14 @@ class Service(object):
             forceselectcourse = False
         return forceselectcourse
 
+    # 获取重复尝试次数，如果没有配置则默认为3次
+    def get_retrytime(self):
+        retrytime=self.config.get_configvalue('setting', 'retrytime')
+        if retrytime is not None:
+            return retrytime
+        else:
+            return 3
+
 
     # 设置状态栏的状态信息
     def set_status(self,str):
@@ -576,6 +588,12 @@ class Service(object):
 
     def init_selectcoursedata(self,filepath=None):
         self.selectCourseService.initdata(filepath)
+
+    def getcurrenttime(self):
+        timeStamp = time.time()  # 1559286774.2953627
+        timeArray = time.localtime(timeStamp)
+        currentTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+        return currentTime
 
 
 if __name__=='__main__':
