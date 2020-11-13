@@ -184,7 +184,12 @@ class SelectCourseService(object):
         '''{'cengci': '高起专', 'courseD': '生理学Z', 'courseId': 63, 'examScorePe': 60, 'examtype': 0, 'id': 46463,
          'learnHour': 72, 'learnScore': 4, 'mainFlag': 0, 'planId': 755, 'recomFlag': 0, 'semenum': 2, 'spec': '中药学',
          'specId': 2, 'teachType': 1, 'type': 1, 'workScorePe': 40}'''
-
+        recomflag='0'
+        if 'recomFlag' in selectcourse:
+            recomflag=selectcourse['recomFlag']
+        spec=''
+        if 'spec' in selectcourse:
+            spec=selectcourse['spec']
         table='WS_TOSELECT_COURSE'
         data = {
             'COURSE_STU_NO': stu_no,
@@ -198,9 +203,9 @@ class SelectCourseService(object):
             'COURSE_LEARNSCORE': selectcourse['learnScore'],
             'COURSE_MAINFLAG': selectcourse['mainFlag'],
             'COURSE_PLANID': selectcourse['planId'],
-            'COURSE_RECOMFLAG': selectcourse['recomFlag'],
+            'COURSE_RECOMFLAG': recomflag,
             'COURSE_SEMENUM': selectcourse['semenum'],
-            'COURSE_SPEC': selectcourse['spec'],
+            'COURSE_SPEC': spec,
             'COURSE_SPECID': selectcourse['specId'],
             'COURSE_TEACHTYPE': selectcourse['teachType'],
             'COURSE_TYPE': selectcourse['type'],

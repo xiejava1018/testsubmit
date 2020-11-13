@@ -51,7 +51,7 @@ class Service(object):
         self.selectCourseService.utiltools = self.utiltools
 
     # 登录
-    def login(self,login_name,login_psw):
+    def login(self,login_name,login_psw,retrytime=None):
         post_data={
             'student.studentNo':login_name,
             'student.pwd':login_psw
@@ -76,12 +76,21 @@ class Service(object):
                         self.log('用户' + str(login_name) + "登录失败！",True)
         except :
             self.log(neterror_msg, True)
-            exit()
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.login(login_name, login_psw, retrytime)
 
 
 
     #获取学员选课信息
-    def geteleactive(self,semeId,studentNo):
+    def geteleactive(self,semeId,studentNo,retrytime=None):
         #选课信息URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/list'
         post_data={
@@ -114,6 +123,16 @@ class Service(object):
                             self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败',True)
         except :
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.geteleactive(semeId,studentNo,retrytime)
 
     # 获取学生学习计划
     def getstudentlearninfo(self,coursePlanId,retrytime=None):
@@ -131,12 +150,20 @@ class Service(object):
                             iflearn=True
         except :
             self.log(neterror_msg, True)
-            retrytime=self.get_retrytime()
-            self.getstudentlearninfo(coursePlanId,retrytime)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.getstudentlearninfo(coursePlanId,retrytime)
         return iflearn
 
     # 获取学生作业
-    def getstudentcursework(self,login_name,semeId,courseId,courseName):
+    def getstudentcursework(self,login_name,semeId,courseId,courseName,retrytime=None):
         #作业列表URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/work_list'
         post_data={
@@ -195,8 +222,11 @@ class Service(object):
                                 if isdowork:
                                     self.log('学生' + str(login_name) + '要求自动做' + checkwork + '作业：' + paperName, True)
                                 if isselectdo==False or (isselectdo and isdocourse) or (isselectdo and isdowork):
-                                    self.getstudentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
-                                    self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName,True)
+                                    submit_reslut=self.submit_studentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
+                                    submit_reslut_msg='失败'
+                                    if submit_reslut:
+                                        submit_reslut_msg='成功'
+                                    self.log('学生'+str(login_name)+'自动完成第' + str(havesub_papernum) + '套作业-试卷编号：'+str(paperId)+'-'+paperName+submit_reslut_msg,True)
                                     #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
                                     workdelaytime=self.getworkdelaytime()
                                     self.log('休息'+str(workdelaytime)+'秒....',False)
@@ -206,18 +236,28 @@ class Service(object):
                                 paperId) + '-' + paperName + '没有在作业时间范围之内,暂不能开始作业！', True)
         except :
             self.log(neterror_msg, True)
-            exit()
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.getstudentcursework(login_name,semeId,courseId,courseName,retrytime)
 
 
 
     # 获取试卷
-    def getstudentpaper(self,login_name,paperId,paperName,workId):
+    def submit_studentpaper(self,login_name,paperId,paperName,workId,retrytime=None):
         #试卷URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/paper'
         paperId=paperId
         post_data={
             'paperId':paperId
         }
+        submit_result=False
         try:
             response = self.session.post(request_url, data=post_data,headers=self.headers)
             if response.status_code == 200:
@@ -259,9 +299,20 @@ class Service(object):
                 print(subpaper)
                 #提交试卷
                 time.sleep(itemdelaytime)
-                self.submitpaper(login_name=login_name,paperId=paperId,workId=workId,subpaper=subpaper)
+                submit_result=self.submitpaper(login_name=login_name,paperId=paperId,workId=workId,subpaper=subpaper)
         except :
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.submit_studentpaper(login_name,paperId,paperName,workId,retrytime)
+        return submit_result
 
     def getstudentworktest(self,paperId):
         # 试卷URL
@@ -277,19 +328,35 @@ class Service(object):
             self.log(neterror_msg, True)
 
     # 提交试卷
-    def submitpaper(self,login_name,paperId,workId,subpaper):
+    def submitpaper(self,login_name,paperId,workId,subpaper,retrytime=None):
         # 提交试卷URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/submit_work?paperId='+str(paperId)+'&workId='+str(workId)
         post_data={
             'sub':subpaper
         }
+        submit_result=False
         try:
             response = self.session.post(request_url, data=post_data, headers=self.headers)
             if response.status_code == 200:
-                print('submit paper---'+response.text)
-                self.log('学生'+str(login_name)+'自动提交作业：' + response.text,True)
+                print('submit paper---' + response.text)
+                self.log('学生' + str(login_name) + '自动提交作业：' + response.text, True)
+                submit_info = json.loads(response.text)
+                if submit_info is not None:
+                    if submit_info['code'] == 100:
+                        submit_result=True
         except :
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.submitpaper(login_name,paperId,workId,subpaper,retrytime)
+        return submit_result
 
 
     # 学生选课
@@ -358,7 +425,7 @@ class Service(object):
 
 
     # 提交选课信息
-    def submit_selectcourse(self,studinfo,selectcourselist):
+    def submit_selectcourse(self,studinfo,selectcourselist,retrytime=None):
         studentNo = studinfo['stu']['studentNo']
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/save2'
         post_data = {
@@ -392,9 +459,19 @@ class Service(object):
                 self.selectCourseService.delete_selctcourse(studentNo)
         except:
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.submit_selectcourse(studinfo,selectcourselist,retrytime)
 
     # 获取毕业条件
-    def get_biyetiaojian(self):
+    def get_biyetiaojian(self,retrytime=None):
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/main/biye_tiaojian'
         post_data = {
         }
@@ -411,6 +488,16 @@ class Service(object):
                 print(xuanxiu_score)
         except:
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.get_biyetiaojian(retrytime)
 
 
     # 获取待选课列表
@@ -448,7 +535,7 @@ class Service(object):
         return stu_cur_eleactive,tobeelectlist
 
     # 获取学生选课计划
-    def get_stu_courseplanlist(self,login_name,stu_plan_name,stu_plan_id):
+    def get_stu_courseplanlist(self,login_name,stu_plan_name,stu_plan_id,retrytime=None):
         dateutil = DateUtil.DateUtil()
         semenum=dateutil.getSCTermNo(stu_plan_name)
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/courseplan/list_stu'
@@ -466,11 +553,21 @@ class Service(object):
                 stu_course_plan=stu_course_json['pager']['datas']
         except:
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.get_stu_courseplanlist(login_name,stu_plan_name,stu_plan_id,retrytime)
         return stu_course_plan
 
 
     # 获取学生本学期已选课程
-    def get_stu_eleactive(self,semeId,studentNo):
+    def get_stu_eleactive(self,semeId,studentNo,retrytime=None):
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/list'
         post_data = {
             'page': 1,
@@ -492,6 +589,16 @@ class Service(object):
                         stu_cur_elect.append(course)
         except:
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.get_stu_eleactive(semeId,studentNo,retrytime)
         return stu_cur_elect,stu_have_elect
 
     def check_ifcourseinhis(self,semeId,studentNo,courseId):
@@ -501,7 +608,7 @@ class Service(object):
                 return True
         return False
 
-    def get_stu_his_eleactive(self,semeId,studentNo):
+    def get_stu_his_eleactive(self,semeId,studentNo,retrytime=None):
         request_url = 'https://jxjyxb.bucm.edu.cn/api/v1/student/eleactive/list2'
         post_data = {
             'page': 1,
@@ -516,6 +623,16 @@ class Service(object):
                 stu_his_elective = stu_course_json['pager']['datas']
         except:
             self.log(neterror_msg, True)
+            set_retrytime=int(self.get_retrytime())
+            if retrytime is None:
+                retrytime = int(set_retrytime)
+            else:
+                retrytime = int(retrytime) - 1
+            if retrytime>0:
+                self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
+                retryinterval = self.get_retryinterval()
+                time.sleep(retryinterval)
+                self.get_stu_his_eleactive(semeId, studentNo, retrytime)
         return stu_his_elective
 
 
@@ -566,10 +683,18 @@ class Service(object):
     # 获取重复尝试次数，如果没有配置则默认为3次
     def get_retrytime(self):
         retrytime=self.config.get_configvalue('setting', 'retrytime')
-        if retrytime is not None:
-            return retrytime
+        if retrytime is not None and retrytime.isdigit():
+            return int(retrytime)
         else:
             return 3
+
+    # 获取重复尝试间隔时间，默认1秒
+    def get_retryinterval(self):
+        retrytime=self.config.get_configvalue('setting', 'retryinterval')
+        if retrytime is not None and retrytime.isdigit():
+            return int(retrytime)
+        else:
+            return 1
 
 
     # 设置状态栏的状态信息
@@ -598,11 +723,11 @@ class Service(object):
 
 if __name__=='__main__':
     service=Service()
-    #service.login(login_name='201820113109',login_psw='806854137')
-    #service.geteleactive(semeId='40',studentNo='202020121200')
+    service.login(login_name='201820113109',login_psw='806854137')
+    #service.geteleactive(semeId='40',studentNo='201820113109')
     #service.getstudentpaper(1002,1107)
     #service.getstudentpaper('201820113109','684','医古文B',684)
     #print(service.getstudentlearninfo('46903'))
     #service.student_selectcourse('201820112006','466183314')
-    stud_info=service.login(login_name='201820112006', login_psw='466183314')
-    service.stu_selectcourse(stud_info,16)
+    #stud_info=service.login(login_name='201820112006', login_psw='466183314')
+    #service.stu_selectcourse(stud_info,16)
