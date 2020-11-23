@@ -17,7 +17,7 @@ import xlrd
 import _thread
 import UtilTools
 import ReadConfig
-
+import os
 class TestSubmitGUI():
     selectfileEntered=object
 
@@ -107,6 +107,9 @@ class TestSubmitGUI():
         # Adding a Textbox Entry widget
         self.selectfile = tk.StringVar()
         self.selectfileEntered = ttk.Entry(tab2, width=40, textvariable=self.selectfile)
+        root_dir = os.path.abspath(os.curdir)
+        file_path = os.path.join(root_dir, "用户表.xlsx")
+        self.selectfile.set(file_path)
         self.selectfileEntered.grid(column=1, row=0, sticky='W')
         button1 = ttk.Button(tab2, text='浏览...', width=8, command=self.selectExcelfile)
         button1.grid(column=2,row=0,sticky='W')
@@ -180,7 +183,7 @@ class TestSubmitGUI():
     def procbatch_selectcourse(self):
         self.init_proc()
         # 读取excel文件
-        if self.selectfileEntered.get():
+        if self.selectfileEntered.get() and os.path.exists(self.selectfileEntered.get()):
             book = xlrd.open_workbook(self.selectfileEntered.get())
             sheet1 = book.sheets()[0]
             try:
@@ -189,7 +192,7 @@ class TestSubmitGUI():
                 print("Error:无法启动线程")
                 self.service.log('Error: 无法启动线程', True)
         else:
-            self.service.log('请导入文件！')
+            self.service.log('文件不存在，请导入文件！')
 
     # 批量处理选课
     def dobatch_selectcourse(self,sheet1):
@@ -224,7 +227,7 @@ class TestSubmitGUI():
     def procbatchtest(self):
         self.init_proc()
         # 读取excel文件
-        if self.selectfileEntered.get():
+        if self.selectfileEntered.get() and os.path.exists(self.selectfileEntered.get()):
             book = xlrd.open_workbook(self.selectfileEntered.get())
             sheet1 = book.sheets()[0]
             try:
@@ -233,7 +236,7 @@ class TestSubmitGUI():
                 print("Error:无法启动线程")
                 self.service.log('Error: 无法启动线程', True)
         else:
-            self.service.log('请导入文件！')
+            self.service.log('文件不存在，请导入文件！')
 
     # 批量处理作业
     def dobatch(self,sheet1):

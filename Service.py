@@ -364,7 +364,11 @@ class Service(object):
         self.set_status(str(login_name) + '开始自动选课...')
         studinfo = self.login(login_name, login_pwd)
         if studinfo:
-            self.stu_selectcourse(studinfo)
+            stu_spec = studinfo['stu']['spec']
+            xuanke_counter=5
+            if stu_spec in ['工商管理','公共卫生管理','公共事业管理']:
+                xuanke_counter=6
+            self.stu_selectcourse(studinfo,xuanke_counter)
         self.set_status(str(login_name) + '自动选课执行完成！')
 
     def stu_selectcourse(self,studinfo,xuanke_counter=0):
