@@ -6,6 +6,7 @@
     :license: MIT, see LICENSE for more details.
 """
 import time
+import datetime
 import requests
 import json
 import logging
@@ -118,7 +119,9 @@ class Service(object):
                             courseplanid=course['coursePlanId']
                         if self.getstudentlearninfo(courseplanid):
                             self.log('获取学生'+str(studentNo)+'选课'+courseName+'学习计划'+str(courseplanid)+'成功',True)
-                            self.getstudentcursework(login_name=studentNo,semeId=semeId,courseId=courseId,courseName=courseName)
+                            # 判断是否是学生选做
+                            isselectdo = self.selectworkService.isselectdo(studentNo)
+                            self.getstudentcursework(login_name=studentNo,semeId=semeId,courseId=courseId,courseName=courseName,isselectdo=isselectdo)
                         else:
                             self.log('获取学生' + str(studentNo) + '选课' + courseName + '学习计划' + str(courseplanid) + '失败',True)
         except :
@@ -163,7 +166,7 @@ class Service(object):
         return iflearn
 
     # 获取学生作业
-    def getstudentcursework(self,login_name,semeId,courseId,courseName,retrytime=None):
+    def getstudentcursework(self,login_name,semeId,courseId,courseName,retrytime=None,isselectdo=False):
         #作业列表URL
         request_url='https://jxjyxb.bucm.edu.cn/api/v1/student/coursework/work_list'
         post_data={
@@ -181,10 +184,8 @@ class Service(object):
                     havesub_papernum=0
                     #self.show_singstudent_proc(maximum=papernum,value=havesub_papernum)
                     self.log('获取学生'+str(login_name)+courseName+'作业信息成功！共'+str(papernum)+'套作业',True)
-                    # 判断是否是学生选做
-                    isselectdo=self.selectworkService.isselectdo(login_name)
                     if isselectdo:
-                        self.log('学生'+str(login_name) + '有要求选择性自动作业',True)
+                        self.log('学生' + str(login_name) + '有要求选择性自动作业', True)
                     checkcourse='courseId='+str(courseId)
                     isdocourse=self.selectworkService.isdowork(str(login_name),checkcourse)
                     if isdocourse:
@@ -198,7 +199,7 @@ class Service(object):
                         createTime = time.strftime("%Y-%m-%d %H:%M:%S", createTimeArray)
 
                         endTimeStr=paper['endTime']
-                        endTimeArray = time.localtime(endTimeStr / 1000)
+                        endTimeArray = time.localtime(endTimeStr / 1000+86400) #截止时间当天还可以提交
                         endTime = time.strftime("%Y-%m-%d %H:%M:%S", endTimeArray)
 
                         timeStamp = time.time()  # 1559286774.2953627
@@ -208,20 +209,20 @@ class Service(object):
                         #print('创建时间' + createTime)
                         #print('结束时间' + endTime)
                         #print('当前时间' + currentTime)
-                        havesub_papernum += 1
-                        if currentTime > createTime and currentTime < endTime:
-                            if 'courseWorkStu' in paper:
-                                courseWorkcreateTime=paper['courseWorkStu']['createTime']
-                                timeArray= time.localtime(courseWorkcreateTime/1000)
-                                workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-                                self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
-                                #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
-                            else:
-                                checkwork='paperId='+str(paperId)+'&workId='+str(workId)
-                                isdowork=self.selectworkService.isdowork(str(login_name),checkwork)
-                                if isdowork:
-                                    self.log('学生' + str(login_name) + '要求自动做' + checkwork + '作业：' + paperName, True)
-                                if isselectdo==False or (isselectdo and isdocourse) or (isselectdo and isdowork):
+                        checkwork = 'paperId=' + str(paperId) + '&workId=' + str(workId)
+                        isdowork = self.selectworkService.isdowork(str(login_name), checkwork)
+                        if isdowork:
+                            self.log('学生' + str(login_name) + '要求自动做' + checkwork + '作业：' + paperName, True)
+                        if isselectdo == False or (isselectdo and isdocourse) or (isselectdo and isdowork):
+                            havesub_papernum += 1
+                            if currentTime >= createTime and currentTime <= endTime:
+                                if 'courseWorkStu' in paper:
+                                    courseWorkcreateTime=paper['courseWorkStu']['createTime']
+                                    timeArray= time.localtime(courseWorkcreateTime/1000)
+                                    workTime = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+                                    self.log('学生'+str(login_name)+'第' + str(havesub_papernum) + '套作业-试卷编号：' + str(paperId) + '-' + paperName+'在'+workTime+'提交过！',True)
+                                    #self.show_singstudent_proc(maximum=papernum, value=havesub_papernum)
+                                else:
                                     submit_reslut=self.submit_studentpaper(login_name=login_name,paperId=paperId,paperName=paperName,workId=workId)
                                     submit_reslut_msg='失败'
                                     if submit_reslut:
@@ -231,9 +232,9 @@ class Service(object):
                                     workdelaytime=self.getworkdelaytime()
                                     self.log('休息'+str(workdelaytime)+'秒....',False)
                                     time.sleep(workdelaytime)
-                        else:
-                            self.log('学生' + str(login_name) + '第' + str(havesub_papernum) + '套作业-试卷编号：' + str(
-                                paperId) + '-' + paperName + '没有在作业时间范围之内,暂不能开始作业！', True)
+                            else:
+                                self.log('学生' + str(login_name) + '第' + str(havesub_papernum) + '套作业-试卷编号：' + str(
+                                    paperId) + '-' + paperName + '没有在作业时间范围之内,暂不能开始作业！', True)
         except :
             self.log(neterror_msg, True)
             set_retrytime=int(self.get_retrytime())
@@ -245,7 +246,7 @@ class Service(object):
                 self.log('重复尝试第' + str(set_retrytime-retrytime+1) + '次',True)
                 retryinterval = self.get_retryinterval()
                 time.sleep(retryinterval)
-                self.getstudentcursework(login_name,semeId,courseId,courseName,retrytime)
+                self.getstudentcursework(login_name,semeId,courseId,courseName,retrytime,isselectdo)
 
 
 
